@@ -1,0 +1,24 @@
+﻿@inherits LayoutComponentBase
+@inject IThemeService ThemeService
+@using JournalManagementSystem.Services
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="page" style="background-color: var(--maui-background); color: var(--maui-text); min-height: 100vh;">
+    <span class="me-3">Theme:</span>
+    <label class="switch">
+    <input type="checkbox" 
+           checked="@ThemeService.IsDarkMode" 
+           @onchange="ThemeService.ToggleTheme" />
+    <span class="slider round"></span>
+</label>
+<span class="ms-2">@(ThemeService.IsDarkMode ? "Dark" : "Light")</span>
+</div>
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
