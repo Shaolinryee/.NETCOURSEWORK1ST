@@ -32,6 +32,17 @@ public class AppDbContext : DbContext
             .Property(e => e.EntryDate)
             .HasColumnType("DATE");
 
+        // Store PrimaryMood as string and allow secondary moods CSV
+        modelBuilder.Entity<JournalEntry>()
+            .Property(e => e.PrimaryMood)
+            .HasConversion<string>()
+            .IsRequired();
+
+        modelBuilder.Entity<JournalEntry>()
+            .Property(e => e.SecondaryMoodsCsv)
+            .HasColumnName("SecondaryMoods")
+            .HasMaxLength(128);
+
         modelBuilder.Entity<JournalEntry>()
             .Property(e => e.CreatedAt)
             .HasDefaultValueSql("CURRENT_TIMESTAMP");

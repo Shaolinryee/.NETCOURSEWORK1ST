@@ -26,9 +26,29 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="mood">Mood Rating (1-10)</label>
-                    <input type="range" id="mood" class="form-control" min="1" max="10" @bind="formMoodRating">
-                    <small>Current mood: @formMoodRating @GetMoodEmoji(formMoodRating)</small>
+                    <label for="primaryMood">Primary Mood (Required)</label>
+                    <select id="primaryMood" class="form-control" @bind="formPrimaryMood">
+                        @foreach (var m in Enum.GetValues<Mood>())
+                        {
+                            <option value="@m">@m</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Secondary Moods (Optional — up to 2)</label>
+                    <div class="secondary-moods">
+                        @foreach (var m in Enum.GetValues<Mood>())
+                        {
+                            if (m == formPrimaryMood) { continue; }
+                            <label class="secondary-item">
+                                <input type="checkbox" value="@m" checked="@formSecondaryMoods.Contains(m)"
+                                    @onchange="(() => ToggleSecondary(m))" />
+                                @m
+                            </label>
+                        }
+                    </div>
+                    <small class="text-muted">Select up to 2 secondary moods. Primary mood will be excluded.</small>
                 </div>
 
                 <div class="form-group">
@@ -77,9 +97,10 @@
                             <span class="entry-date">@entry.EntryDate.ToString("dddd, MMMM dd, yyyy")</span>
                         </div>
                         <div class="entry-meta">
-                            @if (entry.MoodRating.HasValue)
+                            <span class="mood-badge">@GetMoodEmoji(entry.PrimaryMood) @entry.PrimaryMood</span>
+                            @if (!string.IsNullOrWhiteSpace(entry.SecondaryMoodsCsv))
                             {
-                                <span class="mood-badge">@GetMoodEmoji(entry.MoodRating.Value) @entry.MoodRating/10</span>
+                                <div class="secondary-list">Secondary: @entry.SecondaryMoodsCsv</div>
                             }
                         </div>
                     </div>
@@ -111,7 +132,8 @@
 
     private string formTitle = string.Empty;
     private string formContent = string.Empty;
-    private int formMoodRating = 5;
+    private Mood formPrimaryMood = Mood.Calm;
+    private HashSet<Mood> formSecondaryMoods = new();
 
     private string message = string.Empty;
     private string errorMessage = string.Empty;
@@ -147,7 +169,8 @@
         editingId = 0;
         formTitle = string.Empty;
         formContent = string.Empty;
-        formMoodRating = 5;
+        formPrimaryMood = Mood.Calm;
+        formSecondaryMoods.Clear();
         message = string.Empty;
         errorMessage = string.Empty;
         showForm = true;
@@ -159,7 +182,12 @@
         editingId = entry.Id;
         formTitle = entry.Title ?? string.Empty;
         formContent = entry.Content;
-        formMoodRating = entry.MoodRating ?? 5;
+        formPrimaryMood = entry.PrimaryMood;
+        formSecondaryMoods = string.IsNullOrWhiteSpace(entry.SecondaryMoodsCsv)
+        ? new HashSet<Mood>()
+        : entry.SecondaryMoodsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries)
+        .Select(s => Enum.Parse<Mood>(s))
+        .ToHashSet();
         message = string.Empty;
         errorMessage = string.Empty;
         showForm = true;
@@ -184,12 +212,12 @@
 
             if (isEditing)
             {
-                await JournalService.UpdateEntryAsync(editingId, formTitle, formContent, formMoodRating);
+                await JournalService.UpdateEntryAsync(editingId, formTitle, formContent, formPrimaryMood, formSecondaryMoods.ToList());
                 message = "Entry updated successfully!";
             }
             else
             {
-                await JournalService.CreateEntryAsync(formTitle, formContent, formMoodRating);
+                await JournalService.CreateEntryAsync(formTitle, formContent, formPrimaryMood, formSecondaryMoods.ToList());
                 message = "Entry created successfully!";
             }
 
@@ -220,13 +248,41 @@
         }
     }
 
-    private string GetMoodEmoji(int? mood) => mood switch
+    private void ToggleSecondary(Mood m)
     {
-        1 or 2 => "😞",
-        3 or 4 => "😕",
-        5 or 6 => "😐",
-        7 or 8 => "🙂",
-        9 or 10 => "😄",
-        _ => "😊"
+        if (formSecondaryMoods.Contains(m))
+        {
+            formSecondaryMoods.Remove(m);
+            return;
+        }
+
+        // limit to 2
+        if (formSecondaryMoods.Count >= 2)
+        {
+            // ignore additional selections
+            return;
+        }
+
+        formSecondaryMoods.Add(m);
+    }
+
+    private string GetMoodEmoji(Mood m) => m switch
+    {
+        Mood.Happy => "😄",
+        Mood.Excited => "🤩",
+        Mood.Relaxed => "😌",
+        Mood.Grateful => "🙏",
+        Mood.Confident => "💪",
+        Mood.Calm => "😌",
+        Mood.Thoughtful => "🤔",
+        Mood.Curious => "🧐",
+        Mood.Nostalgic => "🕰️",
+        Mood.Bored => "😐",
+        Mood.Sad => "😢",
+        Mood.Angry => "😠",
+        Mood.Stressed => "😫",
+        Mood.Lonely => "😔",
+        Mood.Anxious => "😟",
+        _ => "🙂"
     };
 }

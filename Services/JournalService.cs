@@ -9,8 +9,8 @@ public interface IJournalService
     Task<JournalEntry?> GetEntryByDateAsync(DateOnly date);
     Task<List<JournalEntry>> GetEntriesAsync(int? limit = null);
     Task<List<JournalEntry>> GetEntriesRangeAsync(DateOnly startDate, DateOnly endDate);
-    Task<JournalEntry> CreateEntryAsync(string title, string content, int? moodRating = null);
-    Task<JournalEntry> UpdateEntryAsync(int id, string title, string content, int? moodRating = null);
+    Task<JournalEntry> CreateEntryAsync(string title, string content, Mood primaryMood, List<Mood>? secondaryMoods = null);
+    Task<JournalEntry> UpdateEntryAsync(int id, string title, string content, Mood primaryMood, List<Mood>? secondaryMoods = null);
     Task<bool> DeleteEntryAsync(int id);
     Task<bool> EntryExistsForDateAsync(DateOnly date);
     Task<JournalEntry?> GetEntryByIdAsync(int id);
@@ -25,7 +25,7 @@ public class JournalService : IJournalService
         _context = context;
     }
 
-   
+
     public async Task<JournalEntry?> GetEntryByDateAsync(DateOnly date)
     {
         return await _context.JournalEntries
@@ -45,7 +45,7 @@ public class JournalService : IJournalService
         return await query.ToListAsync();
     }
 
-   
+
     public async Task<List<JournalEntry>> GetEntriesRangeAsync(DateOnly startDate, DateOnly endDate)
     {
         return await _context.JournalEntries
@@ -54,12 +54,12 @@ public class JournalService : IJournalService
             .ToListAsync();
     }
 
-    
-    public async Task<JournalEntry> CreateEntryAsync(string title, string content, int? moodRating = null)
+
+    public async Task<JournalEntry> CreateEntryAsync(string title, string content, Mood primaryMood, List<Mood>? secondaryMoods = null)
     {
         var today = DateOnly.FromDateTime(DateTime.Now);
 
-        
+
         var existingEntry = await GetEntryByDateAsync(today);
         if (existingEntry != null)
         {
@@ -71,7 +71,8 @@ public class JournalService : IJournalService
             EntryDate = today,
             Title = title,
             Content = content,
-            MoodRating = moodRating,
+            PrimaryMood = primaryMood,
+            SecondaryMoodsCsv = (secondaryMoods == null || secondaryMoods.Count == 0) ? null : string.Join(',', secondaryMoods.Select(m => m.ToString())),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -82,8 +83,8 @@ public class JournalService : IJournalService
         return entry;
     }
 
-    
-    public async Task<JournalEntry> UpdateEntryAsync(int id, string title, string content, int? moodRating = null)
+
+    public async Task<JournalEntry> UpdateEntryAsync(int id, string title, string content, Mood primaryMood, List<Mood>? secondaryMoods = null)
     {
         var entry = await _context.JournalEntries.FindAsync(id);
         if (entry == null)
@@ -93,7 +94,8 @@ public class JournalService : IJournalService
 
         entry.Title = title;
         entry.Content = content;
-        entry.MoodRating = moodRating;
+        entry.PrimaryMood = primaryMood;
+        entry.SecondaryMoodsCsv = (secondaryMoods == null || secondaryMoods.Count == 0) ? null : string.Join(',', secondaryMoods.Select(m => m.ToString()));
         entry.UpdatedAt = DateTime.UtcNow;
 
         _context.JournalEntries.Update(entry);
@@ -102,7 +104,7 @@ public class JournalService : IJournalService
         return entry;
     }
 
-   
+
     public async Task<bool> DeleteEntryAsync(int id)
     {
         var entry = await _context.JournalEntries.FindAsync(id);
@@ -123,7 +125,7 @@ public class JournalService : IJournalService
             .AnyAsync(e => e.EntryDate == date);
     }
 
-    
+
     public async Task<JournalEntry?> GetEntryByIdAsync(int id)
     {
         return await _context.JournalEntries.FindAsync(id);

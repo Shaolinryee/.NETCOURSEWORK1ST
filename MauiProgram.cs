@@ -3,6 +3,8 @@ using Blazored.LocalStorage;
 using JournalManagementSystem.Services;
 using JournalManagementSystem.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
+using System.Linq;
 
 namespace JournalManagementSystem;
 
@@ -41,7 +43,50 @@ public static class MauiProgram
 		using (var scope = app.Services.CreateScope())
 		{
 			var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+			// Ensure database exists
 			dbContext.Database.EnsureCreated();
+
+			// If the DB was created previously, its schema may not include newly added columns (PrimaryMood, SecondaryMoods).
+			// Detect missing columns and ALTER TABLE to add them so runtime doesn't fail.
+			try
+			{
+				var dbPathLocal = dbPath; // capture
+				using var conn = new SqliteConnection($"Data Source={dbPathLocal}");
+				conn.Open();
+
+				var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				using (var cmd = conn.CreateCommand())
+				{
+					cmd.CommandText = "PRAGMA table_info('JournalEntries');";
+					using var reader = cmd.ExecuteReader();
+					while (reader.Read())
+					{
+						existingColumns.Add(reader.GetString(1)); // name column
+					}
+				}
+
+				// Add PrimaryMood column if missing
+				if (!existingColumns.Contains("PrimaryMood"))
+				{
+					using var addCmd = conn.CreateCommand();
+					addCmd.CommandText = "ALTER TABLE JournalEntries ADD COLUMN PrimaryMood TEXT NOT NULL DEFAULT 'Calm';";
+					addCmd.ExecuteNonQuery();
+				}
+
+				// Add SecondaryMoods column if missing
+				if (!existingColumns.Contains("SecondaryMoods"))
+				{
+					using var addCmd2 = conn.CreateCommand();
+					addCmd2.CommandText = "ALTER TABLE JournalEntries ADD COLUMN SecondaryMoods TEXT;";
+					addCmd2.ExecuteNonQuery();
+				}
+
+				conn.Close();
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"DB schema update check failed: {ex.Message}");
+			}
 		}
 
 		// Apply saved theme immediately on startup
