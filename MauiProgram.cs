@@ -46,6 +46,47 @@ public static class MauiProgram
 			// Ensure database exists
 			dbContext.Database.EnsureCreated();
 
+			// Initialize prebuilt tags if they don't exist
+			try
+			{
+				var existingTags = dbContext.Tags.Where(t => t.IsPrebuilt).Count();
+				if (existingTags == 0)
+				{
+					var prebuiltTags = new[]
+					{
+						new { Name = "Work", IsPrebuilt = true },
+						new { Name = "Career", IsPrebuilt = true },
+						new { Name = "Studies", IsPrebuilt = true },
+						new { Name = "Health", IsPrebuilt = true },
+						new { Name = "Fitness", IsPrebuilt = true },
+						new { Name = "Relationships", IsPrebuilt = true },
+						new { Name = "Family", IsPrebuilt = true },
+						new { Name = "Friends", IsPrebuilt = true },
+						new { Name = "Goals", IsPrebuilt = true },
+						new { Name = "Achievements", IsPrebuilt = true },
+						new { Name = "Challenges", IsPrebuilt = true },
+						new { Name = "Gratitude", IsPrebuilt = true },
+						new { Name = "Travel", IsPrebuilt = true },
+						new { Name = "Hobbies", IsPrebuilt = true },
+						new { Name = "Reflection", IsPrebuilt = true }
+					};
+
+					foreach (var tag in prebuiltTags)
+					{
+						dbContext.Tags.Add(new JournalManagementSystem.Models.Tag
+						{
+							Name = tag.Name,
+							IsPrebuilt = tag.IsPrebuilt
+						});
+					}
+					dbContext.SaveChanges();
+				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"Failed to initialize prebuilt tags: {ex.Message}");
+			}
+
 			// If the DB was created previously, its schema may not include newly added columns (PrimaryMood, SecondaryMoods).
 			// Detect missing columns and ALTER TABLE to add them so runtime doesn't fail.
 			try
