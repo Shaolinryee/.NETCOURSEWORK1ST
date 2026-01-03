@@ -1,0 +1,139 @@
+@page "/calendar"
+@using JournalManagementSystem.Models
+@using JournalManagementSystem.Services
+@inject IJournalService JournalService
+
+<div class="calendar-container">
+    <div class="calendar-header">
+        <button class="btn btn-light" @onclick="PrevMonth">‹</button>
+        <h2>@currentMonth: @currentYear</h2>
+        <button class="btn btn-light" @onclick="NextMonth">›</button>
+    </div>
+
+    <div class="calendar-grid">
+        @foreach (var d in DayNames)
+        {
+            <div class="calendar-cell calendar-weekday">@d</div>
+        }
+
+        @foreach (var cell in calendarCells)
+        {
+            var isCurrentMonth = cell.Month == displayMonth;
+            var hasEntries = entriesByDate.ContainsKey(cell);
+            <button
+                class="calendar-cell day-cell @(isCurrentMonth ? "current-month" : "other-month") @(hasEntries ? "has-entries" : "")"
+                @onclick="(() => SelectDate(cell))">
+                <div class="day-number">@cell.Day</div>
+                @if (hasEntries)
+                {
+                    <div class="entry-count">@entriesByDate[cell].Count()</div>
+                }
+            </button>
+        }
+    </div>
+
+    <div class="day-entries">
+        @if (selectedDate.HasValue)
+        {
+            <h3>Entries on @selectedDate.Value.ToString("MMMM dd, yyyy")</h3>
+            var list = entriesByDate.ContainsKey(selectedDate.Value) ? entriesByDate[selectedDate.Value] :
+            Enumerable.Empty<JournalEntry>();
+            if (!list.Any())
+            {
+                <p>No entries for this day.</p>
+            }
+            else
+            {
+                foreach (var e in list)
+                {
+                    <div class="entry-summary">
+                        <strong>@(e.Title ?? e.EntryDate.ToString("d"))</strong>
+                        <div class="muted">@GetMoodEmoji(e.PrimaryMood) @e.PrimaryMood</div>
+                        <div>@(e.Content.Length > 200 ? e.Content.Substring(0, 200) + "…" : e.Content)</div>
+                    </div>
+                }
+            }
+        }
+        else
+        {
+            <p>Select a day to view entries.</p>
+        }
+    </div>
+</div>
+
+@code {
+    private int displayYear;
+    private int displayMonth;
+    private DateOnly? selectedDate;
+
+    private IEnumerable<DateOnly> calendarCells = Enumerable.Empty<DateOnly>();
+    private Dictionary<DateOnly, List<JournalEntry>> entriesByDate = new();
+
+    private static readonly string[] DayNames = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+
+    private string currentMonth => new DateOnly(displayYear, displayMonth, 1).ToString("MMMM");
+    private int currentYear => displayYear;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var now = DateOnly.FromDateTime(DateTime.Now);
+        displayYear = now.Year;
+        displayMonth = now.Month;
+        await LoadCalendarAsync();
+    }
+
+    private async Task LoadCalendarAsync()
+    {
+        var firstOfMonth = new DateOnly(displayYear, displayMonth, 1);
+        int offset = (int)firstOfMonth.DayOfWeek; // Sunday=0
+        var start = firstOfMonth.AddDays(-offset);
+        var cells = new List<DateOnly>();
+        for (int i = 0; i < 42; i++) cells.Add(start.AddDays(i));
+        calendarCells = cells;
+
+        var rangeStart = cells.First();
+        var rangeEnd = cells.Last();
+        var entries = await JournalService.GetEntriesRangeAsync(rangeStart, rangeEnd);
+        entriesByDate = entries.GroupBy(e => e.EntryDate).ToDictionary(g => g.Key, g => g.ToList());
+        selectedDate = null;
+    }
+
+    private async Task PrevMonth()
+    {
+        var dt = new DateOnly(displayYear, displayMonth, 1).AddMonths(-1);
+        displayYear = dt.Year; displayMonth = dt.Month;
+        await LoadCalendarAsync();
+    }
+
+    private async Task NextMonth()
+    {
+        var dt = new DateOnly(displayYear, displayMonth, 1).AddMonths(1);
+        displayYear = dt.Year; displayMonth = dt.Month;
+        await LoadCalendarAsync();
+    }
+
+    private void SelectDate(DateOnly d)
+    {
+        selectedDate = d;
+    }
+
+    private string GetMoodEmoji(Mood m) => m switch
+    {
+        Mood.Happy => "😄",
+        Mood.Excited => "🤩",
+        Mood.Relaxed => "😌",
+        Mood.Grateful => "🙏",
+        Mood.Confident => "💪",
+        Mood.Calm => "😌",
+        Mood.Thoughtful => "🤔",
+        Mood.Curious => "🧐",
+        Mood.Nostalgic => "🕰️",
+        Mood.Bored => "😐",
+        Mood.Sad => "😢",
+        Mood.Angry => "😠",
+        Mood.Stressed => "😫",
+        Mood.Lonely => "😔",
+        Mood.Anxious => "😟",
+        _ => "🙂"
+    };
+}

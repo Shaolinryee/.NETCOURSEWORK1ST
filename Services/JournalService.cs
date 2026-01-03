@@ -11,6 +11,9 @@ public interface IJournalService
     Task<List<JournalEntry>> GetEntriesRangeAsync(DateOnly startDate, DateOnly endDate);
     Task<JournalEntry> CreateEntryAsync(string title, string content, Mood primaryMood, List<Mood>? secondaryMoods = null);
     Task<JournalEntry> UpdateEntryAsync(int id, string title, string content, Mood primaryMood, List<Mood>? secondaryMoods = null);
+    Task<JournalEntry> CreateEntryAsync(string title, string content, Mood primaryMood, List<Mood>? secondaryMoods, List<string>? tags);
+    Task<JournalEntry> UpdateEntryAsync(int id, string title, string content, Mood primaryMood, List<Mood>? secondaryMoods, List<string>? tags);
+    Task<List<Tag>> GetAllTagsAsync();
     Task<bool> DeleteEntryAsync(int id);
     Task<bool> EntryExistsForDateAsync(DateOnly date);
     Task<JournalEntry?> GetEntryByIdAsync(int id);
@@ -29,13 +32,16 @@ public class JournalService : IJournalService
     public async Task<JournalEntry?> GetEntryByDateAsync(DateOnly date)
     {
         return await _context.JournalEntries
+            .Include(e => e.JournalEntryTags).ThenInclude(jt => jt.Tag)
             .Where(e => e.EntryDate == date)
             .FirstOrDefaultAsync();
     }
 
     public async Task<List<JournalEntry>> GetEntriesAsync(int? limit = null)
     {
-        IQueryable<JournalEntry> query = _context.JournalEntries.OrderByDescending(e => e.EntryDate);
+        IQueryable<JournalEntry> query = _context.JournalEntries
+            .Include(e => e.JournalEntryTags).ThenInclude(jt => jt.Tag)
+            .OrderByDescending(e => e.EntryDate);
 
         if (limit.HasValue)
         {
@@ -49,6 +55,7 @@ public class JournalService : IJournalService
     public async Task<List<JournalEntry>> GetEntriesRangeAsync(DateOnly startDate, DateOnly endDate)
     {
         return await _context.JournalEntries
+            .Include(e => e.JournalEntryTags).ThenInclude(jt => jt.Tag)
             .Where(e => e.EntryDate >= startDate && e.EntryDate <= endDate)
             .OrderByDescending(e => e.EntryDate)
             .ToListAsync();
@@ -83,6 +90,20 @@ public class JournalService : IJournalService
         return entry;
     }
 
+    // New overloaded CreateEntry with tags
+    public async Task<JournalEntry> CreateEntryAsync(string title, string content, Mood primaryMood, List<Mood>? secondaryMoods, List<string>? tags)
+    {
+        var entry = await CreateEntryAsync(title, content, primaryMood, secondaryMoods);
+
+        if (tags != null && tags.Count > 0)
+        {
+            await EnsureAndAttachTagsAsync(entry, tags);
+            await _context.SaveChangesAsync();
+        }
+
+        return entry;
+    }
+
 
     public async Task<JournalEntry> UpdateEntryAsync(int id, string title, string content, Mood primaryMood, List<Mood>? secondaryMoods = null)
     {
@@ -102,6 +123,57 @@ public class JournalService : IJournalService
         await _context.SaveChangesAsync();
 
         return entry;
+    }
+
+    // New overloaded Update with tags
+    public async Task<JournalEntry> UpdateEntryAsync(int id, string title, string content, Mood primaryMood, List<Mood>? secondaryMoods, List<string>? tags)
+    {
+        var entry = await UpdateEntryAsync(id, title, content, primaryMood, secondaryMoods);
+
+        // Handle tags
+        await EnsureAndAttachTagsAsync(entry, tags ?? new List<string>());
+        await _context.SaveChangesAsync();
+
+        return entry;
+    }
+
+    public async Task<List<Tag>> GetAllTagsAsync()
+    {
+        return await _context.Tags.OrderBy(t => t.Name).ToListAsync();
+    }
+
+
+
+    private async Task EnsureAndAttachTagsAsync(JournalEntry entry, List<string> tags)
+    {
+        if (tags == null || tags.Count == 0) return;
+
+        var normalized = tags.Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        var existing = await _context.Tags.Where(t => normalized.Contains(t.Name)).ToListAsync();
+
+        var tagEntities = new List<Tag>();
+        foreach (var tagName in normalized)
+        {
+            var existingTag = existing.FirstOrDefault(t => string.Equals(t.Name, tagName, StringComparison.OrdinalIgnoreCase));
+            if (existingTag != null)
+            {
+                tagEntities.Add(existingTag);
+            }
+            else
+            {
+                var newTag = new Tag { Name = tagName };
+                _context.Tags.Add(newTag);
+                tagEntities.Add(newTag);
+            }
+        }
+
+        // Attach JournalEntryTag relations (replace existing ones)
+        entry.JournalEntryTags.Clear();
+        foreach (var t in tagEntities)
+        {
+            entry.JournalEntryTags.Add(new JournalEntryTag { JournalEntry = entry, Tag = t });
+        }
     }
 
 
@@ -128,6 +200,8 @@ public class JournalService : IJournalService
 
     public async Task<JournalEntry?> GetEntryByIdAsync(int id)
     {
-        return await _context.JournalEntries.FindAsync(id);
+        return await _context.JournalEntries
+            .Include(e => e.JournalEntryTags).ThenInclude(jt => jt.Tag)
+            .FirstOrDefaultAsync(e => e.Id == id);
     }
 }

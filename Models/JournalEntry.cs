@@ -19,6 +19,9 @@ public class JournalEntry
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    // Tags association (many-to-many via join entity)
+    public ICollection<JournalEntryTag> JournalEntryTags { get; set; } = new List<JournalEntryTag>();
 }
 
 public enum Mood
@@ -44,3 +47,6 @@ public enum Mood
     Lonely,
     Anxious
 }
+
+// Navigation for tags
+// (Tags are exposed via the JournalEntryTags join entity)

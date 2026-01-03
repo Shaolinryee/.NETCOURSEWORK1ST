@@ -77,6 +77,55 @@
         <div class="alert alert-danger">@errorMessage</div>
     }
 
+    <div class="search-filter-container">
+        <div class="search-box">
+            <input type="text" class="form-control" placeholder="Search by title or content..." @bind="searchQuery"
+                @bind:event="oninput" />
+        </div>
+        <div class="filter-controls">
+            <div class="filter-group">
+                <label for="filterMood">Filter by Mood:</label>
+                <select id="filterMood" class="form-control" @onchange="OnMoodFilterChanged">
+                    <option value="">All Moods</option>
+                    @foreach (var m in Enum.GetValues<Mood>())
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filterDate">From Date:</label>
+                <input type="date" id="filterDate" class="form-control" @onchange="OnDateFromChanged" />
+            </div>
+            <div class="filter-group">
+                <label for="filterDateTo">To Date:</label>
+                <input type="date" id="filterDateTo" class="form-control" @onchange="OnDateToChanged" />
+            </div>
+            <button class="btn btn-secondary" @onclick="ClearFilters">Clear Filters</button>
+        </div>
+    </div>
+
+    @if (entries != null && entries.Count > 0)
+    {
+        <div class="pagination-controls">
+            <div class="pagination-info">
+                <label for="pageSize">Entries per page:</label>
+                <select id="pageSize" class="form-control" @onchange="OnPageSizeChanged">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            <div class="pagination-nav">
+                <button class="btn btn-secondary" @onclick="PrevPage" disabled="@(currentPage == 1)">← Previous</button>
+                <span class="page-indicator">Page @currentPage of @totalPages</span>
+                <button class="btn btn-secondary" @onclick="NextPage" disabled="@(currentPage >= totalPages)">Next
+                    →</button>
+            </div>
+        </div>
+    }
+
     <div class="entries-list">
         @if (entries == null)
         {
@@ -88,7 +137,7 @@
         }
         else
         {
-            @foreach (var entry in entries)
+            @foreach (var entry in paginatedEntries)
             {
                 <div class="entry-card">
                     <div class="entry-header">
@@ -125,7 +174,22 @@
 </div>
 
 @code {
+    private List<JournalEntry> allEntries = null!;
     private List<JournalEntry> entries = null!;
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 1;
+
+    private string searchQuery = string.Empty;
+    private string filterMood = string.Empty;
+    private DateOnly? filterDateFrom = null;
+    private DateOnly? filterDateTo = null;
+
+    private List<JournalEntry> paginatedEntries => entries?
+    .Skip((currentPage - 1) * pageSize)
+    .Take(pageSize)
+    .ToList() ?? new();
+
     private bool showForm = false;
     private bool isEditing = false;
     private int editingId = 0;
@@ -155,12 +219,124 @@
     {
         try
         {
-            entries = await JournalService.GetEntriesAsync();
+            allEntries = await JournalService.GetEntriesAsync();
+            ApplyFilters();
         }
         catch (Exception ex)
         {
             errorMessage = $"Error loading entries: {ex.Message}";
         }
+    }
+
+    private void ApplyFilters()
+    {
+        entries = allEntries ?? new();
+
+        // Text search (title + content)
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            var query = searchQuery.ToLower();
+            entries = entries.Where(e =>
+            (e.Title?.ToLower().Contains(query) ?? false) ||
+            (e.Content?.ToLower().Contains(query) ?? false)
+            ).ToList();
+        }
+
+        // Mood filter
+        if (!string.IsNullOrWhiteSpace(filterMood) && Enum.TryParse<Mood>(filterMood, out var moodFilter))
+        {
+            entries = entries.Where(e => e.PrimaryMood == moodFilter).ToList();
+        }
+
+        // Date range filter
+        if (filterDateFrom.HasValue)
+        {
+            entries = entries.Where(e => e.EntryDate >= filterDateFrom.Value).ToList();
+        }
+
+        if (filterDateTo.HasValue)
+        {
+            entries = entries.Where(e => e.EntryDate <= filterDateTo.Value).ToList();
+        }
+
+        currentPage = 1;
+        CalculateTotalPages();
+    }
+
+    private void CalculateTotalPages()
+    {
+        if (entries == null || entries.Count == 0)
+            totalPages = 1;
+        else
+            totalPages = (int)Math.Ceiling((double)entries.Count / pageSize);
+    }
+
+    private void PrevPage()
+    {
+        if (currentPage > 1)
+            currentPage--;
+    }
+
+    private void NextPage()
+    {
+        if (currentPage < totalPages)
+            currentPage++;
+    }
+
+    private void OnPageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var newSize))
+        {
+            pageSize = newSize;
+            currentPage = 1;
+            CalculateTotalPages();
+        }
+    }
+
+    private void OnMoodFilterChanged(ChangeEventArgs e)
+    {
+        filterMood = e.Value?.ToString() ?? string.Empty;
+        OnFilterChanged(null);
+    }
+
+    private void OnFilterChanged(ChangeEventArgs e)
+    {
+        ApplyFilters();
+    }
+
+    private void OnDateFromChanged(ChangeEventArgs e)
+    {
+        if (e.Value is string dateStr && !string.IsNullOrWhiteSpace(dateStr))
+        {
+            filterDateFrom = DateOnly.Parse(dateStr);
+        }
+        else
+        {
+            filterDateFrom = null;
+        }
+        ApplyFilters();
+    }
+
+    private void OnDateToChanged(ChangeEventArgs e)
+    {
+        if (e.Value is string dateStr && !string.IsNullOrWhiteSpace(dateStr))
+        {
+            filterDateTo = DateOnly.Parse(dateStr);
+        }
+        else
+        {
+            filterDateTo = null;
+        }
+        ApplyFilters();
+    }
+
+    private void ClearFilters()
+    {
+        searchQuery = string.Empty;
+        filterMood = string.Empty;
+        filterDateFrom = null;
+        filterDateTo = null;
+        ApplyFilters();
     }
 
     private void ShowCreateForm()

@@ -81,6 +81,47 @@ public static class MauiProgram
 					addCmd2.ExecuteNonQuery();
 				}
 
+				// Ensure join table for JournalEntryTag exists (created when tag support added)
+				using (var checkJoin = conn.CreateCommand())
+				{
+					checkJoin.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='JournalEntryTag';";
+					using var rdr = checkJoin.ExecuteReader();
+					var hasJoin = rdr.Read();
+					if (!hasJoin)
+					{
+						using var createJoin = conn.CreateCommand();
+						createJoin.CommandText = @"CREATE TABLE IF NOT EXISTS JournalEntryTag (
+							JournalEntryId INTEGER NOT NULL,
+							TagId INTEGER NOT NULL,
+							PRIMARY KEY (JournalEntryId, TagId),
+							FOREIGN KEY (JournalEntryId) REFERENCES JournalEntries(Id) ON DELETE CASCADE,
+							FOREIGN KEY (TagId) REFERENCES Tags(Id) ON DELETE CASCADE
+						);";
+						createJoin.ExecuteNonQuery();
+					}
+				}
+
+				// Ensure Tags table exists
+				using (var checkTags = conn.CreateCommand())
+				{
+					checkTags.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='Tags';";
+					using var rdrTags = checkTags.ExecuteReader();
+					var hasTags = rdrTags.Read();
+					if (!hasTags)
+					{
+						using var createTags = conn.CreateCommand();
+						createTags.CommandText = @"CREATE TABLE IF NOT EXISTS Tags (
+							Id INTEGER PRIMARY KEY AUTOINCREMENT,
+							Name TEXT NOT NULL,
+							IsPrebuilt INTEGER NOT NULL DEFAULT 0
+						);";
+						createTags.ExecuteNonQuery();
+						using var createIdx = conn.CreateCommand();
+						createIdx.CommandText = "CREATE UNIQUE INDEX IF NOT EXISTS IX_Tags_Name ON Tags(Name);";
+						createIdx.ExecuteNonQuery();
+					}
+				}
+
 				conn.Close();
 			}
 			catch (Exception ex)
