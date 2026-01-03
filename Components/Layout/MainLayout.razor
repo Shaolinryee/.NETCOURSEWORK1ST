@@ -1,24 +1,57 @@
 ﻿@inherits LayoutComponentBase
 @inject IThemeService ThemeService
 @using JournalManagementSystem.Services
-<div class="page">
+@implements IAsyncDisposable
+
+<div class="page" data-theme="@ThemeService.CurrentTheme.ToString().ToLower()">
     <div class="sidebar">
         <NavMenu />
     </div>
 
     <main>
-        <div class="page" style="background-color: var(--maui-background); color: var(--maui-text); min-height: 100vh;">
-    <span class="me-3">Theme:</span>
-    <label class="switch">
-    <input type="checkbox" 
-           checked="@ThemeService.IsDarkMode" 
-           @onchange="ThemeService.ToggleTheme" />
-    <span class="slider round"></span>
-</label>
-<span class="ms-2">@(ThemeService.IsDarkMode ? "Dark" : "Light")</span>
-</div>
+        <div class="theme-toolbar">
+            <div class="theme-selector-container">
+                <label for="theme-select" class="theme-label">Theme:</label>
+                <select id="theme-select" class="theme-select" @onchange="OnThemeChanged">
+                    @foreach (var theme in ThemeService.GetAvailableThemes())
+                    {
+                        <option value="@theme" selected="@(theme == ThemeService.CurrentTheme)">
+                            @GetThemeDisplayName(theme)
+                        </option>
+                    }
+                </select>
+            </div>
+        </div>
         <article class="content px-4">
             @Body
         </article>
     </main>
 </div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ThemeService.InitializeAsync();
+    }
+
+    private async Task OnThemeChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<AppTheme>(e.Value?.ToString(), out var theme))
+        {
+            await ThemeService.SetThemeAsync(theme);
+            StateHasChanged();
+        }
+    }
+
+    private string GetThemeDisplayName(AppTheme theme) => theme switch
+    {
+        AppTheme.Light => "Light",
+        AppTheme.Dark => "Dark",
+        _ => theme.ToString()
+    };
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        await ValueTask.CompletedTask;
+    }
+}

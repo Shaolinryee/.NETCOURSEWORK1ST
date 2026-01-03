@@ -1,0 +1,232 @@
+@page "/journal"
+@using JournalManagementSystem.Services
+@using JournalManagementSystem.Models
+@inject IJournalService JournalService
+
+<div class="journal-container">
+    <h1>📔 Journal Entries</h1>
+
+    <div class="journal-actions">
+        @if (!showForm)
+        {
+            <button class="btn btn-primary" @onclick="ShowCreateForm">+ New Entry for Today</button>
+        }
+    </div>
+
+    @if (showForm)
+    {
+        <div class="journal-form-card">
+            <h2>@(isEditing ? "Edit Entry" : "Create New Entry")</h2>
+
+            <form @onsubmit="SaveEntry">
+                <div class="form-group">
+                    <label for="title">Title (Optional)</label>
+                    <input type="text" id="title" class="form-control" @bind="formTitle"
+                        placeholder="Give your entry a title...">
+                </div>
+
+                <div class="form-group">
+                    <label for="mood">Mood Rating (1-10)</label>
+                    <input type="range" id="mood" class="form-control" min="1" max="10" @bind="formMoodRating">
+                    <small>Current mood: @formMoodRating @GetMoodEmoji(formMoodRating)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="content">Content *</label>
+                    <textarea id="content" class="form-control textarea" @bind="formContent"
+                        placeholder="Write your journal entry here..." rows="8"></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(formContent)">
+                        @(isEditing ? "Update Entry" : "Save Entry")
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="CancelForm">Cancel</button>
+                </div>
+            </form>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert alert-info">@message</div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <div class="entries-list">
+        @if (entries == null)
+        {
+            <p class="loading">Loading entries...</p>
+        }
+        else if (entries.Count == 0)
+        {
+            <p class="no-entries">No journal entries yet. Start writing today!</p>
+        }
+        else
+        {
+            @foreach (var entry in entries)
+            {
+                <div class="entry-card">
+                    <div class="entry-header">
+                        <div class="entry-date-title">
+                            <h3>@(entry.Title ?? entry.EntryDate.ToString("MMMM dd, yyyy"))</h3>
+                            <span class="entry-date">@entry.EntryDate.ToString("dddd, MMMM dd, yyyy")</span>
+                        </div>
+                        <div class="entry-meta">
+                            @if (entry.MoodRating.HasValue)
+                            {
+                                <span class="mood-badge">@GetMoodEmoji(entry.MoodRating.Value) @entry.MoodRating/10</span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="entry-content">
+                        @((MarkupString)entry.Content.Replace("\n", "<br>"))
+                    </div>
+
+                    <div class="entry-footer">
+                        <small class="timestamp">
+                            Updated: @entry.UpdatedAt.ToString("MMM dd, yyyy HH:mm")
+                        </small>
+                        <div class="entry-actions">
+                            <button class="btn btn-sm btn-info" @onclick="(() => EditEntry(entry))">Edit</button>
+                            <button class="btn btn-sm btn-danger" @onclick="(() => DeleteEntry(entry.Id))">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private List<JournalEntry> entries = null!;
+    private bool showForm = false;
+    private bool isEditing = false;
+    private int editingId = 0;
+
+    private string formTitle = string.Empty;
+    private string formContent = string.Empty;
+    private int formMoodRating = 5;
+
+    private string message = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEntries();
+
+        // Check if there's an entry for today
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var todayEntry = await JournalService.GetEntryByDateAsync(today);
+        if (todayEntry != null)
+        {
+            showForm = false;
+        }
+    }
+
+    private async Task LoadEntries()
+    {
+        try
+        {
+            entries = await JournalService.GetEntriesAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading entries: {ex.Message}";
+        }
+    }
+
+    private void ShowCreateForm()
+    {
+        isEditing = false;
+        editingId = 0;
+        formTitle = string.Empty;
+        formContent = string.Empty;
+        formMoodRating = 5;
+        message = string.Empty;
+        errorMessage = string.Empty;
+        showForm = true;
+    }
+
+    private void EditEntry(JournalEntry entry)
+    {
+        isEditing = true;
+        editingId = entry.Id;
+        formTitle = entry.Title ?? string.Empty;
+        formContent = entry.Content;
+        formMoodRating = entry.MoodRating ?? 5;
+        message = string.Empty;
+        errorMessage = string.Empty;
+        showForm = true;
+    }
+
+    private void CancelForm()
+    {
+        showForm = false;
+        message = string.Empty;
+        errorMessage = string.Empty;
+    }
+
+    private async Task SaveEntry()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(formContent))
+            {
+                errorMessage = "Content is required!";
+                return;
+            }
+
+            if (isEditing)
+            {
+                await JournalService.UpdateEntryAsync(editingId, formTitle, formContent, formMoodRating);
+                message = "Entry updated successfully!";
+            }
+            else
+            {
+                await JournalService.CreateEntryAsync(formTitle, formContent, formMoodRating);
+                message = "Entry created successfully!";
+            }
+
+            await LoadEntries();
+            CancelForm();
+            showForm = false;
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving entry: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteEntry(int id)
+    {
+        if (await JournalService.DeleteEntryAsync(id))
+        {
+            message = "Entry deleted successfully!";
+            await LoadEntries();
+        }
+        else
+        {
+            errorMessage = "Failed to delete entry.";
+        }
+    }
+
+    private string GetMoodEmoji(int? mood) => mood switch
+    {
+        1 or 2 => "😞",
+        3 or 4 => "😕",
+        5 or 6 => "😐",
+        7 or 8 => "🙂",
+        9 or 10 => "😄",
+        _ => "😊"
+    };
+}
