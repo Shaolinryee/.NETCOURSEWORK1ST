@@ -1,5 +1,171 @@
 ﻿@page "/"
+@using JournalManagementSystem.Services
+@inject ISecurityService SecurityService
+@inject NavigationManager Navigation
 
-<h1>Hello, world!</h1>
+<div class="home-container">
+    @if (isLoading)
+    {
+        <div class="loading-screen">
+            <div class="spinner-large"></div>
+            <p>Loading...</p>
+        </div>
+    }
+    else if (needsSetup)
+    {
+        <div class="setup-container">
+            <div class="setup-card">
+                <div class="setup-header">
+                    <div class="logo-icon">📖</div>
+                    <h1>Welcome to Journal Management System</h1>
+                    <p class="subtitle">Let's secure your journal</p>
+                </div>
 
-Welcome to your new app.
+                <div class="setup-content">
+                    @if (setupMessage != "")
+                    {
+                        <div class="message @(messageType == "error" ? "error" : "success")">
+                            @setupMessage
+                        </div>
+                    }
+
+                    <div class="form-group">
+                        <label>Create a Password</label>
+                        <input type="password" class="setup-input" @bind="newPassword"
+                            placeholder="Enter a strong password" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <input type="password" class="setup-input" @bind="confirmPassword"
+                            placeholder="Re-enter your password" />
+                    </div>
+
+                    <button class="setup-btn" @onclick="SetupSecurity" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner"></span>
+                            <span>Setting up...</span>
+                        }
+                        else
+                        {
+                            <span>🔒 Secure My Journal</span>
+                        }
+                    </button>
+
+                    <div class="security-tips">
+                        <h4>🛡️ Security Tips:</h4>
+                        <ul>
+                            <li>Use at least 8 characters</li>
+                            <li>Include uppercase and lowercase letters</li>
+                            <li>Add numbers and special characters</li>
+                            <li>Don't use common words or personal info</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool needsSetup = false;
+    private bool isProcessing = false;
+    private string newPassword = "";
+    private string confirmPassword = "";
+    private string setupMessage = "";
+    private string messageType = "error";
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            // Check if security is already set up
+            bool isSetup = await SecurityService.IsSecuritySetupCompleteAsync();
+
+            if (!isSetup)
+            {
+                needsSetup = true;
+                isLoading = false;
+            }
+            else
+            {
+                // Check if user is authenticated
+                var authState = await SecurityService.GetCurrentAuthStateAsync();
+                if (authState.IsAuthenticated)
+                {
+                    // Already authenticated, go to journal
+                    Navigation.NavigateTo("/journal", true);
+                }
+                else
+                {
+                    // Not authenticated, go to login
+                    Navigation.NavigateTo("/login", true);
+                }
+            }
+        }
+        catch
+        {
+            needsSetup = true;
+            isLoading = false;
+        }
+    }
+
+    private async Task SetupSecurity()
+    {
+        setupMessage = "";
+
+        if (string.IsNullOrWhiteSpace(newPassword))
+        {
+            setupMessage = "Please enter a password";
+            messageType = "error";
+            return;
+        }
+
+        if (newPassword.Length < 8)
+        {
+            setupMessage = "Password must be at least 8 characters";
+            messageType = "error";
+            return;
+        }
+
+        if (newPassword != confirmPassword)
+        {
+            setupMessage = "Passwords do not match";
+            messageType = "error";
+            return;
+        }
+
+        isProcessing = true;
+
+        try
+        {
+            bool success = await SecurityService.SetupSecurityAsync(newPassword);
+
+            if (success)
+            {
+                setupMessage = "Security setup complete! Redirecting...";
+                messageType = "success";
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/login", true);
+            }
+            else
+            {
+                setupMessage = "Failed to setup security. Please try again.";
+                messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            setupMessage = $"An error occurred: {ex.Message}";
+            messageType = "error";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+}

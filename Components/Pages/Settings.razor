@@ -1,0 +1,310 @@
+@page "/settings"
+@using JournalManagementSystem.Services
+@inject ISecurityService SecurityService
+@inject NavigationManager Navigation
+
+@if (!isAuthenticated)
+{
+    <div class="auth-check-loading">
+        <div class="spinner-large"></div>
+        <p>Verifying access...</p>
+    </div>
+}
+else
+{
+    <div class="settings-container">
+        <div class="settings-header">
+            <h1>⚙️ Security Settings</h1>
+            <p class="subtitle">Manage your password and PIN protection</p>
+        </div>
+
+        @if (message != "")
+        {
+            <div class="message @(messageType == "error" ? "error" : "success")">
+                @message
+            </div>
+        }
+
+        <!-- Change Password Section -->
+        <div class="settings-card">
+            <div class="card-header">
+                <h2>🔐 Change Password</h2>
+                <p>Update your master password</p>
+            </div>
+            <div class="card-content">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" class="form-input" @bind="currentPassword"
+                        placeholder="Enter current password" />
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" class="form-input" @bind="newPassword" placeholder="Enter new password" />
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" class="form-input" @bind="confirmPassword" placeholder="Confirm new password" />
+                </div>
+                <button class="btn-primary" @onclick="ChangePassword" disabled="@isProcessing">
+                    @if (isProcessing)
+                    {
+                        <span class="spinner"></span>
+                        <span>Changing...</span>
+                    }
+                    else
+                    {
+                        <span>Change Password</span>
+                    }
+                </button>
+            </div>
+        </div>
+
+        <!-- PIN Setup Section -->
+        <div class="settings-card">
+            <div class="card-header">
+                <h2>📱 PIN Protection</h2>
+                <p>Set up quick access with a PIN code</p>
+            </div>
+            <div class="card-content">
+                @if (!pinEnabled)
+                {
+                    <div class="pin-info">
+                        <p>Enable PIN for faster login. Your PIN should be 4-6 digits.</p>
+                    </div>
+                    <div class="form-group">
+                        <label>Create PIN (4-6 digits)</label>
+                        <input type="password" class="form-input" @bind="newPin" placeholder="Enter PIN" maxlength="6" />
+                    </div>
+                    <button class="btn-primary" @onclick="SetupPin" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner"></span>
+                            <span>Setting up...</span>
+                        }
+                        else
+                        {
+                            <span>Enable PIN</span>
+                        }
+                    </button>
+                }
+                else
+                {
+                    <div class="pin-status">
+                        <div class="status-badge success">✓ PIN Enabled</div>
+                        <p>You can now use your PIN for quick login</p>
+                    </div>
+                    <button class="btn-danger" @onclick="RemovePin" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner"></span>
+                            <span>Removing...</span>
+                        }
+                        else
+                        {
+                            <span>Disable PIN</span>
+                        }
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Session Info -->
+        <div class="settings-card">
+            <div class="card-header">
+                <h2>🔒 Session Information</h2>
+            </div>
+            <div class="card-content">
+                @if (authState != null)
+                {
+                    <div class="info-row">
+                        <span class="label">Authentication Method:</span>
+                        <span class="value">@authState.AuthenticationMethod</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Last Login:</span>
+                        <span class="value">@authState.LastAuthenticationTime?.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Session Expires:</span>
+                        <span class="value">@authState.SessionExpirationTime?.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isAuthenticated = false;
+    private bool pinEnabled = false;
+    private bool isProcessing = false;
+    private string message = "";
+    private string messageType = "error";
+
+    private string currentPassword = "";
+    private string newPassword = "";
+    private string confirmPassword = "";
+    private string newPin = "";
+
+    private AuthenticationState? authState;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check authentication
+        authState = await SecurityService.GetCurrentAuthStateAsync();
+        if (!authState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
+        isAuthenticated = true;
+
+        // Check if PIN is enabled
+        var securityInfo = await SecurityService.GetSecurityInfoAsync();
+        pinEnabled = securityInfo?.IsPinEnabled ?? false;
+    }
+
+    private async Task ChangePassword()
+    {
+        message = "";
+
+        if (string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
+        {
+            message = "Please fill in all password fields";
+            messageType = "error";
+            return;
+        }
+
+        if (newPassword.Length < 8)
+        {
+            message = "New password must be at least 8 characters";
+            messageType = "error";
+            return;
+        }
+
+        if (newPassword != confirmPassword)
+        {
+            message = "New passwords do not match";
+            messageType = "error";
+            return;
+        }
+
+        isProcessing = true;
+
+        try
+        {
+            bool success = await SecurityService.ChangePasswordAsync(currentPassword, newPassword);
+
+            if (success)
+            {
+                message = "Password changed successfully!";
+                messageType = "success";
+                currentPassword = "";
+                newPassword = "";
+                confirmPassword = "";
+            }
+            else
+            {
+                message = "Current password is incorrect or change failed";
+                messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Error: {ex.Message}";
+            messageType = "error";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task SetupPin()
+    {
+        message = "";
+
+        if (string.IsNullOrWhiteSpace(newPin))
+        {
+            message = "Please enter a PIN";
+            messageType = "error";
+            return;
+        }
+
+        if (newPin.Length < 4 || newPin.Length > 6)
+        {
+            message = "PIN must be 4-6 digits";
+            messageType = "error";
+            return;
+        }
+
+        if (!newPin.All(char.IsDigit))
+        {
+            message = "PIN must contain only numbers";
+            messageType = "error";
+            return;
+        }
+
+        isProcessing = true;
+
+        try
+        {
+            bool success = await SecurityService.SetupPinAsync(newPin);
+
+            if (success)
+            {
+                message = "PIN enabled successfully!";
+                messageType = "success";
+                pinEnabled = true;
+                newPin = "";
+            }
+            else
+            {
+                message = "Failed to enable PIN";
+                messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Error: {ex.Message}";
+            messageType = "error";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task RemovePin()
+    {
+        message = "";
+        isProcessing = true;
+
+        try
+        {
+            bool success = await SecurityService.RemovePinAsync();
+
+            if (success)
+            {
+                message = "PIN disabled successfully";
+                messageType = "success";
+                pinEnabled = false;
+            }
+            else
+            {
+                message = "Failed to disable PIN";
+                messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Error: {ex.Message}";
+            messageType = "error";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+}

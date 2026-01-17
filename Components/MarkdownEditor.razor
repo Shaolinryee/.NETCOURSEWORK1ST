@@ -1,0 +1,205 @@
+@using JournalManagementSystem.Services
+@inject IMarkdownService MarkdownService
+
+<div class="markdown-editor">
+    <div class="markdown-toolbar">
+        <div class="toolbar-group">
+            <button type="button" class="toolbar-btn" title="Bold" @onclick='() => InsertMarkdown("**", "**")'>
+                <strong>B</strong>
+            </button>
+            <button type="button" class="toolbar-btn" title="Italic" @onclick='() => InsertMarkdown("*", "*")'>
+                <em>I</em>
+            </button>
+            <button type="button" class="toolbar-btn" title="Strikethrough" @onclick='() => InsertMarkdown("~~", "~~")'>
+                <s>S</s>
+            </button>
+        </div>
+
+        <div class="toolbar-group">
+            <button type="button" class="toolbar-btn" title="Heading 1" @onclick='() => InsertLine("# ")'>H1</button>
+            <button type="button" class="toolbar-btn" title="Heading 2" @onclick='() => InsertLine("## ")'>H2</button>
+            <button type="button" class="toolbar-btn" title="Heading 3" @onclick='() => InsertLine("### ")'>H3</button>
+        </div>
+
+        <div class="toolbar-group">
+            <button type="button" class="toolbar-btn" title="Unordered List" @onclick='() => InsertLine("- ")'>●
+                List</button>
+            <button type="button" class="toolbar-btn" title="Ordered List" @onclick='() => InsertLine("1. ")'>1.
+                List</button>
+            <button type="button" class="toolbar-btn" title="Code" @onclick='() => InsertMarkdown("`", "`")'>
+                &lt;/&gt;
+            </button>
+        </div>
+
+        <div class="toolbar-group">
+            <button type="button" class="toolbar-btn" title="Link" @onclick="InsertLink">[Link]</button>
+            <button type="button" class="toolbar-btn" title="Quote" @onclick='() => InsertLine("> ")'>Quote</button>
+            <button type="button" class="toolbar-btn" title="Code Block" @onclick="InsertCodeBlock">Code Block</button>
+        </div>
+
+        <div class="toolbar-group">
+            <button type="button" class="toolbar-btn @(showPreview ? "active" : "")" title="Toggle Preview"
+                @onclick="TogglePreview">
+                👁️ Preview
+            </button>
+        </div>
+    </div>
+
+    <div class="markdown-content">
+        <div class="editor-section">
+            <textarea @ref="editorTextarea" class="markdown-textarea" @bind="Content"
+                placeholder="Write your journal entry here... You can use Markdown formatting!" rows="@TextareaRows">
+            </textarea>
+        </div>
+
+        @if (showPreview)
+        {
+            <div class="preview-section">
+                <div class="preview-header">Preview</div>
+                <div class="markdown-preview">
+                    @((MarkupString)GetRenderedHtml())
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="markdown-help">
+        <details>
+            <summary>📖 Markdown Formatting Guide</summary>
+            <div class="help-content">
+                <table>
+                    <tr>
+                        <th>Format</th>
+                        <th>Markdown Syntax</th>
+                        <th>Example</th>
+                    </tr>
+                    <tr>
+                        <td>Bold</td>
+                        <td><code>**text**</code></td>
+                        <td><strong>bold text</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Italic</td>
+                        <td><code>*text*</code></td>
+                        <td><em>italic text</em></td>
+                    </tr>
+                    <tr>
+                        <td>Heading 1</td>
+                        <td><code># Heading</code></td>
+                        <td style="font-size: 24px; font-weight: bold;">Heading</td>
+                    </tr>
+                    <tr>
+                        <td>Heading 2</td>
+                        <td><code>## Heading</code></td>
+                        <td style="font-size: 20px; font-weight: bold;">Heading</td>
+                    </tr>
+                    <tr>
+                        <td>List Item</td>
+                        <td><code>- Item</code> or <code>* Item</code></td>
+                        <td>• Item</td>
+                    </tr>
+                    <tr>
+                        <td>Numbered List</td>
+                        <td><code>1. Item</code></td>
+                        <td>1. Item</td>
+                    </tr>
+                    <tr>
+                        <td>Link</td>
+                        <td><code>[text](url)</code></td>
+                        <td><a href="#">link text</a></td>
+                    </tr>
+                    <tr>
+                        <td>Code</td>
+                        <td><code>`code`</code></td>
+                        <td><code>code</code></td>
+                    </tr>
+                    <tr>
+                        <td>Blockquote</td>
+                        <td><code>&gt; quote</code></td>
+                        <td style="border-left: 4px solid #ccc; padding-left: 10px;">quote</td>
+                    </tr>
+                    <tr>
+                        <td>Strikethrough</td>
+                        <td><code>~~text~~</code></td>
+                        <td><s>strikethrough</s></td>
+                    </tr>
+                </table>
+            </div>
+        </details>
+    </div>
+</div>
+
+@code {
+    private ElementReference editorTextarea;
+    private bool showPreview = false;
+    private int TextareaRows = 12;
+
+    [Parameter]
+    public string Content { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> ContentChanged { get; set; }
+
+    private async Task UpdateContent(string value)
+    {
+        Content = value;
+        await ContentChanged.InvokeAsync(value);
+    }
+
+    private string GetRenderedHtml()
+    {
+        return MarkdownService.ConvertToHtml(Content);
+    }
+
+    private void TogglePreview()
+    {
+        showPreview = !showPreview;
+    }
+
+    private async Task InsertMarkdown(string before, string after)
+    {
+        await ExecuteJsMethod("insertMarkdown", before, after);
+    }
+
+    private async Task InsertLine(string prefix)
+    {
+        await ExecuteJsMethod("insertLine", prefix);
+    }
+
+    private async Task InsertLink()
+    {
+        await ExecuteJsMethod("insertLink");
+    }
+
+    private async Task InsertCodeBlock()
+    {
+        await ExecuteJsMethod("insertCodeBlock");
+    }
+
+    private async Task ExecuteJsMethod(string method, params string[] args)
+    {
+        // Update will happen through @bind
+        // This is a simplified version - in a real app, you'd use JS interop
+        if (method == "insertMarkdown" && args.Length == 2)
+        {
+            // Simulate inserting markdown at cursor position
+            Content = Content.Insert(Content.Length, $"{args[0]}text{args[1]}");
+            await UpdateContent(Content);
+        }
+        else if (method == "insertLine" && args.Length == 1)
+        {
+            Content = Content + (string.IsNullOrEmpty(Content) || Content.EndsWith("\n") ? "" : "\n") + args[0];
+            await UpdateContent(Content);
+        }
+        else if (method == "insertLink")
+        {
+            Content += "\n[Link text](https://example.com)";
+            await UpdateContent(Content);
+        }
+        else if (method == "insertCodeBlock")
+        {
+            Content += "\n```\ncode here\n```";
+            await UpdateContent(Content);
+        }
+    }
+}

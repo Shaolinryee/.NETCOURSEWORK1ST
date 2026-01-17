@@ -1,0 +1,125 @@
+@using JournalManagementSystem.Services
+@using JournalManagementSystem.Models
+@inject IStreakService StreakService
+
+<div class="streak-dashboard">
+    <div class="streak-header">
+        <h2>📊 Your Streak Stats</h2>
+    </div>
+
+    @if (streakData != null)
+    {
+        <div class="streak-cards">
+            <!-- Current Streak Card -->
+            <div class="streak-card current-streak">
+                <div class="streak-icon">🔥</div>
+                <div class="streak-info">
+                    <div class="streak-label">Current Streak</div>
+                    <div class="streak-value">@streakData.CurrentStreak</div>
+                    <div class="streak-dates">
+                        @streakData.CurrentStreakStartDate.ToString("MMM dd") to
+                        @streakData.CurrentStreakEndDate.ToString("MMM dd")
+                    </div>
+                </div>
+            </div>
+
+            <!-- Longest Streak Card -->
+            <div class="streak-card longest-streak">
+                <div class="streak-icon">🏆</div>
+                <div class="streak-info">
+                    <div class="streak-label">Longest Streak</div>
+                    <div class="streak-value">@streakData.LongestStreak</div>
+                    <div class="streak-dates">
+                        @streakData.LongestStreakStartDate.ToString("MMM dd") to
+                        @streakData.LongestStreakEndDate.ToString("MMM dd")
+                    </div>
+                </div>
+            </div>
+
+            <!-- This Month Card -->
+            <div class="streak-card month-entries">
+                <div class="streak-icon">📝</div>
+                <div class="streak-info">
+                    <div class="streak-label">This Month</div>
+                    <div class="streak-value">@streakData.TotalEntriesThisMonth</div>
+                    <div class="streak-dates">@DateTime.Now.ToString("MMMM yyyy")</div>
+                </div>
+            </div>
+
+            <!-- All Time Card -->
+            <div class="streak-card all-time">
+                <div class="streak-icon">⭐</div>
+                <div class="streak-info">
+                    <div class="streak-label">All Time</div>
+                    <div class="streak-value">@streakData.TotalEntriesAllTime</div>
+                    <div class="streak-dates">Total entries</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Last Entry & Days Info -->
+        <div class="streak-details">
+            <div class="detail-item">
+                <span class="detail-label">Last Entry:</span>
+                <span class="detail-value">@(streakData.DaysSinceLastEntry == 0 ? "Today" : streakData.DaysSinceLastEntry ==
+                                    1 ? "Yesterday" : streakData.DaysSinceLastEntry + " days ago")</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Days Without Entry:</span>
+                <span class="detail-value">@streakData.MissedDays.Count in current month</span>
+            </div>
+        </div>
+
+        <!-- Missed Days List -->
+        @if (streakData.MissedDays.Count > 0)
+        {
+            <div class="missed-days-section">
+                <h3>📅 Missed Days This Month</h3>
+                <div class="missed-days-list">
+                    @foreach (var missedDay in streakData.MissedDays)
+                    {
+                        <span class="missed-day">@missedDay.ToString("MMM dd")</span>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="no-missed-days">
+                <p>✅ Perfect month! No missed days!</p>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="loading">Loading streak data...</div>
+    }
+</div>
+
+@code {
+    private StreakData? streakData;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStreakDataAsync();
+    }
+
+    private async Task LoadStreakDataAsync()
+    {
+        try
+        {
+            streakData = await StreakService.GetStreakDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading streak data: {ex.Message}");
+        }
+    }
+
+    // Optional: Refresh data
+    public async Task RefreshAsync()
+    {
+        await LoadStreakDataAsync();
+        StateHasChanged();
+    }
+}

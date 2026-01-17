@@ -1,0 +1,68 @@
+@page "/streaks"
+@using JournalManagementSystem.Services
+@inject IStreakService StreakService
+@inject ISecurityService SecurityService
+@inject NavigationManager Navigation
+
+<div class="streaks-page">
+    <div class="streaks-header">
+        <h1>📊 Streak Analytics</h1>
+        <p class="subtitle">Track your journaling consistency and build better habits</p>
+    </div>
+
+    <StreakDashboard />
+
+    <div class="streaks-info">
+        <div class="info-card">
+            <h3>🔥 Current Streak</h3>
+            <p>Your current writing streak. Keep it going!</p>
+        </div>
+        <div class="info-card">
+            <h3>🏆 Longest Streak</h3>
+            <p>Your personal best streak achievement. Can you beat it?</p>
+        </div>
+        <div class="info-card">
+            <h3>📝 Monthly Progress</h3>
+            <p>How many entries you've written this month.</p>
+        </div>
+        <div class="info-card">
+            <h3>⭐ Total Entries</h3>
+            <p>Your complete journaling history all-time.</p>
+        </div>
+    </div>
+
+    <div class="tips-section">
+        <h2>💡 Streak Tips</h2>
+        <ul>
+            <li>📅 Write at the same time each day to build consistency</li>
+            <li>🎯 Set a goal to reach a specific streak number</li>
+            <li>✍️ Even short entries count - quality over quantity</li>
+            <li>🔄 Use streaks to track your journaling habits</li>
+            <li>🎉 Celebrate milestones like 7-day, 30-day, and 100-day streaks</li>
+            <li>📊 Review your streaks monthly to stay motivated</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Check authentication and setup status
+        var authState = await SecurityService.GetCurrentAuthStateAsync();
+        if (!authState.IsAuthenticated)
+        {
+            var isSetupComplete = await SecurityService.IsSecuritySetupCompleteAsync();
+            if (!isSetupComplete)
+            {
+                Navigation.NavigateTo("/setup");
+                return;
+            }
+
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        // Load any additional data if needed
+        await Task.Delay(0); // Placeholder for async operations
+    }
+}

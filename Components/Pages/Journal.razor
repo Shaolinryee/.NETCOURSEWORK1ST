@@ -2,221 +2,292 @@
 @using JournalManagementSystem.Services
 @using JournalManagementSystem.Models
 @inject IJournalService JournalService
+@inject IStreakService StreakService
+@inject ISecurityService SecurityService
+@inject IPdfExportService PdfExportService
+@inject NavigationManager Navigation
 
-<div class="journal-container">
-    <h1>📔 Journal Entries</h1>
-
-    <div class="journal-actions">
-        @if (!showForm)
-        {
-            <button class="btn btn-primary" @onclick="ShowCreateForm">+ New Entry for Today</button>
-        }
+@if (!isAuthenticated)
+{
+    <div class="auth-check-loading">
+        <div class="spinner-large"></div>
+        <p>Verifying access...</p>
     </div>
+}
+else
+{
+    <div class="journal-container">
+        <div class="journal-header">
+            <h1>📔 Journal Entries</h1>
+            <button class="logout-btn" @onclick="Logout">🔓 Logout</button>
+        </div>
 
-    @if (showForm)
-    {
-        <div class="journal-form-card">
-            <h2>@(isEditing ? "Edit Entry" : "Create New Entry")</h2>
+        <!-- Streak Dashboard -->
+        <StreakDashboard />
 
-            <form @onsubmit="SaveEntry">
-                <div class="form-group">
-                    <label for="title">Title (Optional)</label>
-                    <input type="text" id="title" class="form-control" @bind="formTitle"
-                        placeholder="Give your entry a title...">
+        <div class="journal-actions">
+            @if (!showForm)
+            {
+                <button class="btn btn-primary" @onclick="ShowCreateForm">+ New Entry for Today</button>
+                <button class="btn btn-export" @onclick="ToggleExportPanel">📄 Export to PDF</button>
+            }
+        </div>
+
+        @if (showExportPanel)
+        {
+            <div class="export-panel">
+                <div class="export-card">
+                    <h3>📄 Export Journal Entries to PDF</h3>
+
+                    @if (exportMessage != "")
+                    {
+                        <div class="message @(exportMessageType == "error" ? "error" : "success")">
+                            @exportMessage
+                        </div>
+                    }
+
+                    <div class="export-options">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Start Date (Optional)</label>
+                                <input type="date" class="form-control" @bind="exportStartDate" />
+                            </div>
+                            <div class="form-group">
+                                <label>End Date (Optional)</label>
+                                <input type="date" class="form-control" @bind="exportEndDate" />
+                            </div>
+                        </div>
+
+                        <div class="export-info">
+                            <p>💡 Leave dates empty to export all entries</p>
+                            <p>📊 Entries to export: <strong>@GetExportCount()</strong></p>
+                        </div>
+
+                        <div class="export-actions">
+                            <button class="btn btn-success" @onclick="ExportToPdf" disabled="@isExporting">
+                                @if (isExporting)
+                                {
+                                    <span class="spinner"></span>
+                                    <span>Generating PDF...</span>
+                                }
+                                else
+                                {
+                                    <span>📥 Export to PDF</span>
+                                }
+                            </button>
+                            <button class="btn btn-secondary" @onclick="ToggleExportPanel">Cancel</button>
+                        </div>
+                    </div>
                 </div>
+            </div>
+        }
 
-                <div class="form-group">
-                    <label for="primaryMood">Primary Mood (Required)</label>
-                    <select id="primaryMood" class="form-control" @bind="formPrimaryMood">
+        @if (showForm)
+        {
+            <div class="journal-form-card">
+                <h2>@(isEditing ? "Edit Entry" : "Create New Entry")</h2>
+
+                <form @onsubmit="SaveEntry">
+                    <div class="form-group">
+                        <label for="title">Title (Optional)</label>
+                        <input type="text" id="title" class="form-control" @bind="formTitle"
+                            placeholder="Give your entry a title...">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="primaryMood">Primary Mood (Required)</label>
+                        <select id="primaryMood" class="form-control" @bind="formPrimaryMood">
+                            @foreach (var m in Enum.GetValues<Mood>())
+                            {
+                                <option value="@m">@m</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Secondary Moods (Optional — up to 2)</label>
+                        <div class="secondary-moods">
+                            @foreach (var m in Enum.GetValues<Mood>())
+                            {
+                                if (m == formPrimaryMood) { continue; }
+                                <label class="secondary-item">
+                                    <input type="checkbox" value="@m" checked="@formSecondaryMoods.Contains(m)"
+                                        @onchange="(() => ToggleSecondary(m))" />
+                                    @m
+                                </label>
+                            }
+                        </div>
+                        <small class="text-muted">Select up to 2 secondary moods. Primary mood will be excluded.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="content">Content * (Supports Markdown Formatting)</label>
+                        <MarkdownEditor Content="@formContent" ContentChanged="@((string value) => formContent = value)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tags (Select or add custom)</label>
+                        <div class="tags-input-group">
+                            <div class="prebuilt-tags">
+                                @foreach (var tag in availableTags)
+                                {
+                                    <label class="tag-checkbox">
+                                        <input type="checkbox" @onchange="(e => ToggleTag(tag, (bool)e.Value))"
+                                            checked="@formTags.Any(t => t.Id == tag.Id)" />
+                                        @tag.Name
+                                    </label>
+                                }
+                            </div>
+                            <div class="custom-tag-input">
+                                <input type="text" class="form-control" placeholder="Add custom tag..." @bind="customTagInput"
+                                    @onkeydown="OnCustomTagKeydown" />
+                                <button type="button" class="btn btn-sm btn-secondary" @onclick="AddCustomTag">Add</button>
+                            </div>
+                        </div>
+                        @if (formTags.Any())
+                        {
+                            <div class="selected-tags">
+                                @foreach (var tag in formTags)
+                                {
+                                    <span class="tag-badge">
+                                        @tag.Name
+                                        <button type="button" class="tag-remove" @onclick="(() => RemoveTag(tag))">×</button>
+                                    </span>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(formContent)">
+                            @(isEditing ? "Update Entry" : "Save Entry")
+                        </button>
+                        <button type="button" class="btn btn-secondary" @onclick="CancelForm">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(message))
+        {
+            <div class="alert alert-info">@message</div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="search-filter-container">
+            <div class="search-box">
+                <input type="text" class="form-control" placeholder="Search by title or content..." @bind="searchQuery"
+                    @bind:event="oninput" />
+            </div>
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <label for="filterMood">Filter by Mood:</label>
+                    <select id="filterMood" class="form-control" @onchange="OnMoodFilterChanged">
+                        <option value="">All Moods</option>
                         @foreach (var m in Enum.GetValues<Mood>())
                         {
                             <option value="@m">@m</option>
                         }
                     </select>
                 </div>
-
-                <div class="form-group">
-                    <label>Secondary Moods (Optional — up to 2)</label>
-                    <div class="secondary-moods">
-                        @foreach (var m in Enum.GetValues<Mood>())
-                        {
-                            if (m == formPrimaryMood) { continue; }
-                            <label class="secondary-item">
-                                <input type="checkbox" value="@m" checked="@formSecondaryMoods.Contains(m)"
-                                    @onchange="(() => ToggleSecondary(m))" />
-                                @m
-                            </label>
-                        }
-                    </div>
-                    <small class="text-muted">Select up to 2 secondary moods. Primary mood will be excluded.</small>
+                <div class="filter-group">
+                    <label for="filterDate">From Date:</label>
+                    <input type="date" id="filterDate" class="form-control" @onchange="OnDateFromChanged" />
                 </div>
-
-                <div class="form-group">
-                    <label for="content">Content *</label>
-                    <textarea id="content" class="form-control textarea" @bind="formContent"
-                        placeholder="Write your journal entry here..." rows="8"></textarea>
+                <div class="filter-group">
+                    <label for="filterDateTo">To Date:</label>
+                    <input type="date" id="filterDateTo" class="form-control" @onchange="OnDateToChanged" />
                 </div>
-
-                <div class="form-group">
-                    <label>Tags (Select or add custom)</label>
-                    <div class="tags-input-group">
-                        <div class="prebuilt-tags">
-                            @foreach (var tag in availableTags)
-                            {
-                                <label class="tag-checkbox">
-                                    <input type="checkbox" @onchange="(e => ToggleTag(tag, (bool)e.Value))"
-                                        checked="@formTags.Any(t => t.Id == tag.Id)" />
-                                    @tag.Name
-                                </label>
-                            }
-                        </div>
-                        <div class="custom-tag-input">
-                            <input type="text" class="form-control" placeholder="Add custom tag..." @bind="customTagInput"
-                                @onkeydown="OnCustomTagKeydown" />
-                            <button type="button" class="btn btn-sm btn-secondary" @onclick="AddCustomTag">Add</button>
-                        </div>
-                    </div>
-                    @if (formTags.Any())
-                    {
-                        <div class="selected-tags">
-                            @foreach (var tag in formTags)
-                            {
-                                <span class="tag-badge">
-                                    @tag.Name
-                                    <button type="button" class="tag-remove" @onclick="(() => RemoveTag(tag))">×</button>
-                                </span>
-                            }
-                        </div>
-                    }
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(formContent)">
-                        @(isEditing ? "Update Entry" : "Save Entry")
-                    </button>
-                    <button type="button" class="btn btn-secondary" @onclick="CancelForm">Cancel</button>
-                </div>
-            </form>
-        </div>
-    }
-
-    @if (!string.IsNullOrEmpty(message))
-    {
-        <div class="alert alert-info">@message</div>
-    }
-
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger">@errorMessage</div>
-    }
-
-    <div class="search-filter-container">
-        <div class="search-box">
-            <input type="text" class="form-control" placeholder="Search by title or content..." @bind="searchQuery"
-                @bind:event="oninput" />
-        </div>
-        <div class="filter-controls">
-            <div class="filter-group">
-                <label for="filterMood">Filter by Mood:</label>
-                <select id="filterMood" class="form-control" @onchange="OnMoodFilterChanged">
-                    <option value="">All Moods</option>
-                    @foreach (var m in Enum.GetValues<Mood>())
-                    {
-                        <option value="@m">@m</option>
-                    }
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="filterDate">From Date:</label>
-                <input type="date" id="filterDate" class="form-control" @onchange="OnDateFromChanged" />
-            </div>
-            <div class="filter-group">
-                <label for="filterDateTo">To Date:</label>
-                <input type="date" id="filterDateTo" class="form-control" @onchange="OnDateToChanged" />
-            </div>
-            <button class="btn btn-secondary" @onclick="ClearFilters">Clear Filters</button>
-        </div>
-    </div>
-
-    @if (entries != null && entries.Count > 0)
-    {
-        <div class="pagination-controls">
-            <div class="pagination-info">
-                <label for="pageSize">Entries per page:</label>
-                <select id="pageSize" class="form-control" @onchange="OnPageSizeChanged">
-                    <option value="5">5</option>
-                    <option value="10" selected>10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                </select>
-            </div>
-            <div class="pagination-nav">
-                <button class="btn btn-secondary" @onclick="PrevPage" disabled="@(currentPage == 1)">← Previous</button>
-                <span class="page-indicator">Page @currentPage of @totalPages</span>
-                <button class="btn btn-secondary" @onclick="NextPage" disabled="@(currentPage >= totalPages)">Next
-                    →</button>
+                <button class="btn btn-secondary" @onclick="ClearFilters">Clear Filters</button>
             </div>
         </div>
-    }
 
-    <div class="entries-list">
-        @if (entries == null)
+        @if (entries != null && entries.Count > 0)
         {
-            <p class="loading">Loading entries...</p>
+            <div class="pagination-controls">
+                <div class="pagination-info">
+                    <label for="pageSize">Entries per page:</label>
+                    <select id="pageSize" class="form-control" @onchange="OnPageSizeChanged">
+                        <option value="5">5</option>
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                </div>
+                <div class="pagination-nav">
+                    <button class="btn btn-secondary" @onclick="PrevPage" disabled="@(currentPage == 1)">← Previous</button>
+                    <span class="page-indicator">Page @currentPage of @totalPages</span>
+                    <button class="btn btn-secondary" @onclick="NextPage" disabled="@(currentPage >= totalPages)">Next
+                        →</button>
+                </div>
+            </div>
         }
-        else if (entries.Count == 0)
-        {
-            <p class="no-entries">No journal entries yet. Start writing today!</p>
-        }
-        else
-        {
-            @foreach (var entry in paginatedEntries)
+
+        <div class="entries-list">
+            @if (entries == null)
             {
-                <div class="entry-card">
-                    <div class="entry-header">
-                        <div class="entry-date-title">
-                            <h3>@(entry.Title ?? entry.EntryDate.ToString("MMMM dd, yyyy"))</h3>
-                            <span class="entry-date">@entry.EntryDate.ToString("dddd, MMMM dd, yyyy")</span>
-                        </div>
-                        <div class="entry-meta">
-                            <span class="mood-badge">@GetMoodEmoji(entry.PrimaryMood) @entry.PrimaryMood</span>
-                            @if (!string.IsNullOrWhiteSpace(entry.SecondaryMoodsCsv))
-                            {
-                                <div class="secondary-list">Secondary: @entry.SecondaryMoodsCsv</div>
-                            }
-                        </div>
-                    </div>
-
-                    <div class="entry-content">
-                        @((MarkupString)entry.Content.Replace("\n", "<br>"))
-                    </div>
-
-                    @if (entry.JournalEntryTags?.Any() == true)
-                    {
-                        <div class="entry-tags">
-                            @foreach (var jt in entry.JournalEntryTags)
-                            {
-                                <span class="tag-badge-small">@jt.Tag?.Name</span>
-                            }
-                        </div>
-                    }
-
-                    <div class="entry-footer">
-                        <small class="timestamp">
-                            Updated: @entry.UpdatedAt.ToString("MMM dd, yyyy HH:mm")
-                        </small>
-                        <div class="entry-actions">
-                            <button class="btn btn-sm btn-info" @onclick="(() => EditEntry(entry))">Edit</button>
-                            <button class="btn btn-sm btn-danger" @onclick="(() => DeleteEntry(entry.Id))">Delete</button>
-                        </div>
-                    </div>
-                </div>
+                <p class="loading">Loading entries...</p>
             }
-        }
+            else if (entries.Count == 0)
+            {
+                <p class="no-entries">No journal entries yet. Start writing today!</p>
+            }
+            else
+            {
+                @foreach (var entry in paginatedEntries)
+                {
+                    <div class="entry-card">
+                        <div class="entry-header">
+                            <div class="entry-date-title">
+                                <h3>@(entry.Title ?? entry.EntryDate.ToString("MMMM dd, yyyy"))</h3>
+                                <span class="entry-date">@entry.EntryDate.ToString("dddd, MMMM dd, yyyy")</span>
+                            </div>
+                            <div class="entry-meta">
+                                <span class="mood-badge">@GetMoodEmoji(entry.PrimaryMood) @entry.PrimaryMood</span>
+                                @if (!string.IsNullOrWhiteSpace(entry.SecondaryMoodsCsv))
+                                {
+                                    <div class="secondary-list">Secondary: @entry.SecondaryMoodsCsv</div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="entry-content">
+                            <MarkdownDisplay Content="@entry.Content" />
+                        </div>
+
+                        @if (entry.JournalEntryTags?.Any() == true)
+                        {
+                            <div class="entry-tags">
+                                @foreach (var jt in entry.JournalEntryTags)
+                                {
+                                    <span class="tag-badge-small">@jt.Tag?.Name</span>
+                                }
+                            </div>
+                        }
+
+                        <div class="entry-footer">
+                            <small class="timestamp">
+                                Updated: @entry.UpdatedAt.ToString("MMM dd, yyyy HH:mm")
+                            </small>
+                            <div class="entry-actions">
+                                <button class="btn btn-sm btn-info" @onclick="(() => EditEntry(entry))">Edit</button>
+                                <button class="btn btn-sm btn-danger" @onclick="(() => DeleteEntry(entry.Id))">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
     </div>
-</div>
+}
 
 @code {
+    private bool isAuthenticated = false;
+
     private List<JournalEntry> allEntries = null!;
     private List<JournalEntry> entries = null!;
     private int currentPage = 1;
@@ -248,8 +319,26 @@
     private string message = string.Empty;
     private string errorMessage = string.Empty;
 
+    // Export fields
+    private bool showExportPanel = false;
+    private bool isExporting = false;
+    private DateTime? exportStartDate = null;
+    private DateTime? exportEndDate = null;
+    private string exportMessage = "";
+    private string exportMessageType = "error";
+
     protected override async Task OnInitializedAsync()
     {
+        // Check authentication first
+        var authState = await SecurityService.GetCurrentAuthStateAsync();
+        if (!authState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
+        isAuthenticated = true;
+
         await LoadTags();
         await LoadEntries();
 
@@ -260,6 +349,12 @@
         {
             showForm = false;
         }
+    }
+
+    private async Task Logout()
+    {
+        await SecurityService.LogoutAsync();
+        Navigation.NavigateTo("/login", true);
     }
 
     private async Task LoadTags()
@@ -570,4 +665,102 @@
         Mood.Anxious => "😟",
         _ => "🙂"
     };
+
+    // Export methods
+    private void ToggleExportPanel()
+    {
+        showExportPanel = !showExportPanel;
+        if (!showExportPanel)
+        {
+            exportMessage = "";
+            exportStartDate = null;
+            exportEndDate = null;
+        }
+    }
+
+    private int GetExportCount()
+    {
+        if (allEntries == null) return 0;
+
+        var filteredEntries = allEntries.AsEnumerable();
+
+        if (exportStartDate.HasValue)
+        {
+            var startDateOnly = DateOnly.FromDateTime(exportStartDate.Value);
+            filteredEntries = filteredEntries.Where(e => e.EntryDate >= startDateOnly);
+        }
+
+        if (exportEndDate.HasValue)
+        {
+            var endDateOnly = DateOnly.FromDateTime(exportEndDate.Value);
+            filteredEntries = filteredEntries.Where(e => e.EntryDate <= endDateOnly);
+        }
+
+        return filteredEntries.Count();
+    }
+
+    private async Task ExportToPdf()
+    {
+        exportMessage = "";
+        isExporting = true;
+
+        try
+        {
+            var entriesToExport = allEntries.AsEnumerable();
+
+            DateOnly? startDateOnly = null;
+            DateOnly? endDateOnly = null;
+
+            if (exportStartDate.HasValue)
+            {
+                startDateOnly = DateOnly.FromDateTime(exportStartDate.Value);
+                entriesToExport = entriesToExport.Where(e => e.EntryDate >= startDateOnly);
+            }
+
+            if (exportEndDate.HasValue)
+            {
+                endDateOnly = DateOnly.FromDateTime(exportEndDate.Value);
+                entriesToExport = entriesToExport.Where(e => e.EntryDate <= endDateOnly);
+            }
+
+            var exportList = entriesToExport.ToList();
+
+            if (!exportList.Any())
+            {
+                exportMessage = "No entries found in the selected date range";
+                exportMessageType = "error";
+                return;
+            }
+
+            var filePath = await PdfExportService.ExportJournalEntriesToPdfAsync(exportList, startDateOnly, endDateOnly);
+
+            exportMessage = $" Successfully exported {exportList.Count} entries! PDF saved to: {filePath}";
+            exportMessageType = "success";
+
+            await OpenPdfFile(filePath);
+        }
+        catch (Exception ex)
+        {
+            exportMessage = $"Error exporting to PDF: {ex.Message}";
+            exportMessageType = "error";
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+
+    private async Task OpenPdfFile(string filePath)
+    {
+        try
+        {
+            await Launcher.Default.OpenAsync(new OpenFileRequest
+            {
+                File = new ReadOnlyFile(filePath)
+            });
+        }
+        catch
+        {
+        }
+    }
 }

@@ -1,0 +1,297 @@
+@page "/dashboard"
+@using JournalManagementSystem.Services
+@using JournalManagementSystem.Models
+@inject IAnalyticsService AnalyticsService
+@inject ISecurityService SecurityService
+@inject NavigationManager Navigation
+
+@if (!isAuthenticated)
+{
+    <div class="auth-check-loading">
+        <div class="spinner-large"></div>
+        <p>Verifying access...</p>
+    </div>
+}
+else
+{
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <h1>📊 Dashboard & Analytics</h1>
+            <p class="subtitle">Insights into your journaling journey</p>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="loading-section">
+                <div class="spinner-large"></div>
+                <p>Loading analytics...</p>
+            </div>
+        }
+        else if (analytics != null)
+        {
+            <!-- Summary Cards -->
+            <div class="stats-grid">
+                <div class="stat-card primary">
+                    <div class="stat-icon">📝</div>
+                    <div class="stat-content">
+                        <h3>@analytics.TotalEntries</h3>
+                        <p>Total Entries</p>
+                    </div>
+                </div>
+
+                <div class="stat-card success">
+                    <div class="stat-icon">📖</div>
+                    <div class="stat-content">
+                        <h3>@analytics.TotalWords.ToString("N0")</h3>
+                        <p>Total Words</p>
+                    </div>
+                </div>
+
+                <div class="stat-card info">
+                    <div class="stat-icon">✍️</div>
+                    <div class="stat-content">
+                        <h3>@analytics.AverageWordsPerEntry</h3>
+                        <p>Avg Words/Entry</p>
+                    </div>
+                </div>
+
+                <div class="stat-card mood">
+                    <div class="stat-icon">@GetMoodEmoji(analytics.MoodStatistics.MostFrequentMood)</div>
+                    <div class="stat-content">
+                        <h3>@analytics.MoodStatistics.MostFrequentMood</h3>
+                        <p>Most Frequent Mood</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mood Distribution -->
+            <div class="analytics-section">
+                <div class="section-header">
+                    <h2>😊 Mood Distribution</h2>
+                    <p>How you've been feeling in your entries</p>
+                </div>
+
+                <div class="mood-chart">
+                    @foreach (var mood in analytics.MoodDistribution.Take(10))
+                    {
+                        <div class="mood-bar-item">
+                            <div class="mood-label">
+                                <span class="mood-emoji">@GetMoodEmoji(mood.Mood)</span>
+                                <span class="mood-name">@mood.Mood</span>
+                                <span class="mood-count">(@mood.Count)</span>
+                            </div>
+                            <div class="bar-container">
+                                <div class="bar-fill" style="width: @mood.Percentage%">
+                                    <span class="bar-percentage">@mood.Percentage.ToString("F1")%</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Mood Statistics -->
+            <div class="analytics-row">
+                <div class="analytics-card">
+                    <h3>📈 Mood Insights</h3>
+                    <div class="mood-insights">
+                        <div class="insight-item">
+                            <span class="insight-label">Most Frequent:</span>
+                            <span class="insight-value">
+                                @GetMoodEmoji(analytics.MoodStatistics.MostFrequentMood)
+                                @analytics.MoodStatistics.MostFrequentMood
+                                (@analytics.MoodStatistics.MostFrequentCount times)
+                            </span>
+                        </div>
+                        <div class="insight-item">
+                            <span class="insight-label">Least Frequent:</span>
+                            <span class="insight-value">
+                                @GetMoodEmoji(analytics.MoodStatistics.LeastFrequentMood)
+                                @analytics.MoodStatistics.LeastFrequentMood
+                                (@analytics.MoodStatistics.LeastFrequentCount times)
+                            </span>
+                        </div>
+                        <div class="insight-item">
+                            <span class="insight-label">Recent Trend:</span>
+                            <span class="insight-value recent-moods">
+                                @foreach (var mood in analytics.MoodStatistics.RecentMoods.Take(5))
+                                {
+                                    <span class="mood-badge">@GetMoodEmoji(mood)</span>
+                                }
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="analytics-card">
+                    <h3>🏷️ Top Tags</h3>
+                    @if (analytics.TopTags.Any())
+                    {
+                        <div class="tag-cloud">
+                            @foreach (var tag in analytics.TopTags)
+                            {
+                                var fontSize = GetTagFontSize(tag.UsageCount, analytics.TopTags.Max(t => t.UsageCount));
+                                <div class="tag-item" style="font-size: @(fontSize)px">
+                                    <span class="tag-name">@tag.TagName</span>
+                                    <span class="tag-badge">@tag.UsageCount</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="no-data">No tags used yet</p>
+                    }
+                </div>
+            </div>
+
+            <!-- Word Count Trends -->
+            <div class="analytics-section">
+                <div class="section-header">
+                    <h2>📝 Word Count Trends (Last 30 Days)</h2>
+                    <p>Your writing activity over time</p>
+                </div>
+
+                @if (wordCountTrends.Any())
+                {
+                    <div class="word-count-chart">
+                        @{
+                            var maxWords = wordCountTrends.Max(w => w.WordCount);
+                        }
+                        @foreach (var trend in wordCountTrends)
+                        {
+                            var height = maxWords > 0 ? (double)trend.WordCount / maxWords * 100 : 0;
+                            <div class="word-bar-container">
+                                <div class="word-bar" style="height: @height%" title="@trend.WordCount words">
+                                    <span class="word-count-label">@trend.WordCount</span>
+                                </div>
+                                <div class="word-date">@trend.Date.ToString("MM/dd")</div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="trend-stats">
+                        <div class="trend-stat">
+                            <strong>Highest:</strong> @wordCountTrends.Max(w => w.WordCount) words
+                        </div>
+                        <div class="trend-stat">
+                            <strong>Average:</strong> @((int)wordCountTrends.Average(w => w.WordCount)) words
+                        </div>
+                        <div class="trend-stat">
+                            <strong>Lowest:</strong> @wordCountTrends.Min(w => w.WordCount) words
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <p class="no-data">No entries in the last 30 days</p>
+                }
+            </div>
+
+            <!-- Tag Breakdown -->
+            <div class="analytics-section">
+                <div class="section-header">
+                    <h2>🏷️ Complete Tag Breakdown</h2>
+                    <p>All tags and their usage</p>
+                </div>
+
+                @if (allTags.Any())
+                {
+                    <div class="tag-breakdown-grid">
+                        @foreach (var tag in allTags)
+                        {
+                            <div class="tag-breakdown-item">
+                                <div class="tag-breakdown-header">
+                                    <span class="tag-breakdown-name">@tag.TagName</span>
+                                    <span class="tag-breakdown-count">@tag.UsageCount</span>
+                                </div>
+                                <div class="tag-breakdown-bar">
+                                    @{
+                                        var tagPercentage = allTags.Any() ? (double)tag.UsageCount / allTags.Max(t => t.UsageCount) * 100 :
+                                        0;
+                                    }
+                                    <div class="tag-breakdown-fill" style="width: @tagPercentage%"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="no-data">No tags created yet</p>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool isAuthenticated = false;
+    private bool isLoading = true;
+    private DashboardAnalytics? analytics;
+    private List<WordCountTrend> wordCountTrends = new();
+    private List<TagUsage> allTags = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check authentication
+        var authState = await SecurityService.GetCurrentAuthStateAsync();
+        if (!authState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
+        isAuthenticated = true;
+        await LoadAnalytics();
+    }
+
+    private async Task LoadAnalytics()
+    {
+        isLoading = true;
+
+        try
+        {
+            analytics = await AnalyticsService.GetDashboardAnalyticsAsync();
+            wordCountTrends = await AnalyticsService.GetWordCountTrendsAsync(30);
+            allTags = await AnalyticsService.GetTopTagsAsync(50);
+        }
+        catch (Exception ex)
+        {
+            // Handle error
+            Console.WriteLine($"Error loading analytics: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetMoodEmoji(Mood mood) => mood switch
+    {
+        Mood.Happy => "😄",
+        Mood.Excited => "🤩",
+        Mood.Relaxed => "😌",
+        Mood.Grateful => "🙏",
+        Mood.Confident => "💪",
+        Mood.Calm => "😌",
+        Mood.Thoughtful => "🤔",
+        Mood.Curious => "🧐",
+        Mood.Nostalgic => "🕰️",
+        Mood.Bored => "😐",
+        Mood.Sad => "😢",
+        Mood.Angry => "😠",
+        Mood.Stressed => "😫",
+        Mood.Lonely => "😔",
+        Mood.Anxious => "😟",
+        _ => "🙂"
+    };
+
+    private int GetTagFontSize(int count, int maxCount)
+    {
+        if (maxCount == 0) return 14;
+
+        var ratio = (double)count / maxCount;
+        return (int)(14 + (ratio * 16)); // Font size between 14px and 30px
+    }
+}

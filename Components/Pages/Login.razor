@@ -1,0 +1,251 @@
+@page "/login"
+@using JournalManagementSystem.Services
+@using JournalManagementSystem.Models
+@inject ISecurityService SecurityService
+@inject NavigationManager Navigation
+
+<div class="login-container">
+    <div class="login-background">
+        <div class="aurora-1"></div>
+        <div class="aurora-2"></div>
+        <div class="aurora-3"></div>
+    </div>
+
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo-icon">🔐</div>
+            <h1>Journal Access</h1>
+            <p class="subtitle">Secure your memories</p>
+        </div>
+
+        <div class="login-content">
+            @if (loginMessage != "")
+            {
+                <div class="message @(messageType == "error" ? "error" : "success")">
+                    @loginMessage
+                </div>
+            }
+
+            @if (!showPinMethod)
+            {
+                <!-- Password Login -->
+                <div class="login-form @(isLoading ? "loading" : "")">
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-wrapper">
+                            <input type="@(showPassword ? "text" : "password")" class="login-input" @bind="password"
+                                placeholder="Enter your password" @onkeyup="HandleKeyPress" disabled="@isLoading" />
+                            <button class="toggle-btn" @onclick="() => showPassword = !showPassword">
+                                @(showPassword ? "👁️" : "👁️‍🗨️")
+                            </button>
+                        </div>
+                    </div>
+
+                    <button class="login-btn primary" @onclick="LoginWithPassword" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner"></span>
+                            <span>Authenticating...</span>
+                        }
+                        else
+                        {
+                            <span>Login</span>
+                        }
+                    </button>
+
+                    @if (pinAvailable)
+                    {
+                        <button class="login-btn secondary" @onclick="() => showPinMethod = true">
+                            <span>📱 Use PIN</span>
+                        </button>
+                    }
+                </div>
+            }
+            else
+            {
+                <!-- PIN Login -->
+                <div class="pin-login-form @(isLoading ? "loading" : "")">
+                    <div class="form-group">
+                        <label>PIN Code</label>
+                        <div class="pin-input-container">
+                            @for (int i = 0; i < 6; i++)
+                            {
+                                int index = i;
+                                <input type="password" class="pin-input" maxlength="1"
+                                    @onkeydown="(e) => HandlePinKeyDown(e, index)" @onpaste:preventDefault disabled="@isLoading"
+                                    @ref="pinInputs[i]" />
+                            }
+                        </div>
+                    </div>
+
+                    <button class="login-btn primary" @onclick="LoginWithPin" disabled="@(pinCode.Length < 4 || isLoading)">
+                        @if (isLoading)
+                        {
+                            <span class="spinner"></span>
+                            <span>Verifying...</span>
+                        }
+                        else
+                        {
+                            <span>Verify PIN</span>
+                        }
+                    </button>
+
+                    <button class="login-btn secondary" @onclick="() => showPinMethod = false">
+                        <span>🔙 Use Password</span>
+                    </button>
+                </div>
+            }
+        </div>
+
+        <div class="login-footer">
+            <p class="security-info">🛡️ Military-grade encryption protecting your entries</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string password = "";
+    private string pinCode = "";
+    private ElementReference[] pinInputs = new ElementReference[6];
+    private bool showPassword = false;
+    private bool showPinMethod = false;
+    private bool isLoading = false;
+    private bool pinAvailable = false;
+    private string loginMessage = "";
+    private string messageType = "error";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await SecurityService.GetCurrentAuthStateAsync();
+        if (authState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/journal");
+            return;
+        }
+
+        var security = await SecurityService.GetSecurityInfoAsync();
+        pinAvailable = security?.IsPinEnabled ?? false;
+    }
+
+    private async Task LoginWithPassword()
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            loginMessage = "Please enter a password";
+            messageType = "error";
+            return;
+        }
+
+        isLoading = true;
+        loginMessage = "";
+
+        try
+        {
+            bool success = await SecurityService.AuthenticateWithPasswordAsync(password);
+
+            if (success)
+            {
+                loginMessage = "Login successful! Redirecting...";
+                messageType = "success";
+                await Task.Delay(1000);
+                Navigation.NavigateTo("/journal");
+            }
+            else
+            {
+                loginMessage = "Invalid password or account locked. Try again later.";
+                messageType = "error";
+                password = "";
+            }
+        }
+        catch
+        {
+            loginMessage = "An error occurred. Please try again.";
+            messageType = "error";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoginWithPin()
+    {
+        if (pinCode.Length < 4)
+        {
+            loginMessage = "Please enter a valid PIN";
+            messageType = "error";
+            return;
+        }
+
+        isLoading = true;
+        loginMessage = "";
+
+        try
+        {
+            bool success = await SecurityService.AuthenticateWithPinAsync(pinCode);
+
+            if (success)
+            {
+                loginMessage = "PIN verified! Redirecting...";
+                messageType = "success";
+                await Task.Delay(1000);
+                Navigation.NavigateTo("/journal");
+            }
+            else
+            {
+                loginMessage = "Invalid PIN or account locked.";
+                messageType = "error";
+                pinCode = "";
+                ClearPinInputs();
+            }
+        }
+        catch
+        {
+            loginMessage = "An error occurred. Please try again.";
+            messageType = "error";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandlePinKeyDown(KeyboardEventArgs e, int index)
+    {
+        if (e.Key.Length == 1 && char.IsDigit(e.Key[0]))
+        {
+            pinCode += e.Key;
+
+            if (index < pinInputs.Length - 1)
+            {
+                await pinInputs[index + 1].FocusAsync();
+            }
+        }
+        else if (e.Key == "Backspace")
+        {
+            e.Code = "Backspace";
+            if (pinCode.Length > 0)
+            {
+                pinCode = pinCode.Substring(0, pinCode.Length - 1);
+            }
+
+            if (index > 0)
+            {
+                await pinInputs[index - 1].FocusAsync();
+            }
+        }
+    }
+
+    private void ClearPinInputs()
+    {
+        pinCode = "";
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await LoginWithPassword();
+        }
+    }
+}

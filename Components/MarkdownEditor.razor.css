@@ -1,0 +1,344 @@
+.markdown-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+/* Toolbar Styles */
+.markdown-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    border-bottom: none;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.toolbar-group {
+    display: flex;
+    gap: 4px;
+    padding-right: 8px;
+    border-right: 1px solid #ddd;
+}
+
+.toolbar-group:last-child {
+    border-right: none;
+    padding-right: 0;
+}
+
+.toolbar-btn {
+    padding: 6px 10px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-width: 36px;
+    text-align: center;
+}
+
+.toolbar-btn:hover {
+    background: #e8e8e8;
+    border-color: #999;
+}
+
+.toolbar-btn:active,
+.toolbar-btn.active {
+    background: #512BD4;
+    color: white;
+    border-color: #512BD4;
+}
+
+/* Editor and Preview Container */
+.markdown-content {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    min-height: 400px;
+}
+
+.editor-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.preview-section {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    overflow: hidden;
+}
+
+.preview-header {
+    padding: 8px 12px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+    font-weight: 600;
+    font-size: 12px;
+    color: #666;
+}
+
+/* Textarea */
+.markdown-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: vertical;
+    box-sizing: border-box;
+    background: white;
+}
+
+.markdown-textarea:focus {
+    outline: none;
+    border-color: #512BD4;
+    box-shadow: 0 0 0 3px rgba(81, 43, 212, 0.1);
+}
+
+/* Preview */
+.markdown-preview {
+    flex: 1;
+    padding: 12px;
+    overflow: auto;
+    font-size: 14px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
+.markdown-preview h1 {
+    font-size: 28px;
+    font-weight: bold;
+    margin: 16px 0 8px 0;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 8px;
+}
+
+.markdown-preview h2 {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 14px 0 6px 0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 6px;
+}
+
+.markdown-preview h3 {
+    font-size: 20px;
+    font-weight: bold;
+    margin: 12px 0 4px 0;
+}
+
+.markdown-preview p {
+    margin: 8px 0;
+}
+
+.markdown-preview ul,
+.markdown-preview ol {
+    margin: 8px 0;
+    padding-left: 24px;
+}
+
+.markdown-preview li {
+    margin: 4px 0;
+}
+
+.markdown-preview code {
+    background: #f4f4f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #d63384;
+}
+
+.markdown-preview pre {
+    background: #f4f4f4;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    margin: 8px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.markdown-preview pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+}
+
+.markdown-preview blockquote {
+    border-left: 4px solid #512BD4;
+    padding-left: 12px;
+    margin: 8px 0;
+    color: #666;
+    font-style: italic;
+}
+
+.markdown-preview strong {
+    font-weight: bold;
+}
+
+.markdown-preview em {
+    font-style: italic;
+}
+
+.markdown-preview s {
+    text-decoration: line-through;
+}
+
+.markdown-preview a {
+    color: #512BD4;
+    text-decoration: none;
+}
+
+.markdown-preview a:hover {
+    text-decoration: underline;
+}
+
+.markdown-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+}
+
+.markdown-preview th,
+.markdown-preview td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.markdown-preview th {
+    background: #f9f9f9;
+    font-weight: bold;
+}
+
+.markdown-preview hr {
+    border: none;
+    border-top: 2px solid #ddd;
+    margin: 16px 0;
+}
+
+/* Help Section */
+.markdown-help {
+    margin-top: 8px;
+}
+
+.markdown-help details {
+    padding: 12px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.markdown-help summary {
+    font-weight: 600;
+    color: #333;
+    user-select: none;
+}
+
+.markdown-help summary:hover {
+    color: #512BD4;
+}
+
+.markdown-help details[open] summary {
+    color: #512BD4;
+    margin-bottom: 12px;
+}
+
+.help-content {
+    overflow-x: auto;
+}
+
+.help-content table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.help-content th,
+.help-content td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.help-content th {
+    background: #f0f0f0;
+    font-weight: bold;
+}
+
+.help-content code {
+    background: #f4f4f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .markdown-content {
+        flex-direction: column;
+        min-height: auto;
+    }
+
+    .preview-section {
+        max-height: 400px;
+    }
+
+    .toolbar-btn {
+        font-size: 11px;
+        padding: 5px 8px;
+    }
+
+    .markdown-toolbar {
+        gap: 6px;
+    }
+
+    .toolbar-group {
+        gap: 3px;
+        padding-right: 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .markdown-toolbar {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .toolbar-group {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 4px;
+        padding-right: 0;
+    }
+
+    .toolbar-group:last-child {
+        border-bottom: none;
+    }
+
+    .markdown-textarea {
+        font-size: 16px;
+    }
+}

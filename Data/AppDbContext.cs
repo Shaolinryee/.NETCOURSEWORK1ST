@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<JournalEntry> JournalEntries { get; set; }
     public DbSet<Tag> Tags { get; set; }
     public DbSet<JournalEntryTag> JournalEntryTags { get; set; }
+    public DbSet<UserSecurity> UserSecurities { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +68,16 @@ public class AppDbContext : DbContext
             jt.HasOne(x => x.JournalEntry).WithMany(e => e.JournalEntryTags).HasForeignKey(x => x.JournalEntryId).OnDelete(DeleteBehavior.Cascade);
             jt.HasOne(x => x.Tag).WithMany(t => t.JournalEntryTags).HasForeignKey(x => x.TagId).OnDelete(DeleteBehavior.Cascade);
             jt.ToTable("JournalEntryTag");
+        });
+
+        // Configure UserSecurity
+        modelBuilder.Entity<UserSecurity>(us =>
+        {
+            us.HasKey(u => u.Id);
+            us.Property(u => u.PasswordHash).IsRequired();
+            us.Property(u => u.PasswordSalt).IsRequired();
+            us.Property(u => u.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            us.Property(u => u.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
     }
 }

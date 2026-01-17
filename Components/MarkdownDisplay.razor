@@ -1,0 +1,21 @@
+@using JournalManagementSystem.Services
+@inject IMarkdownService MarkdownService
+
+<div class="markdown-display">
+    <div class="markdown-content">
+        @((MarkupString)GetRenderedHtml())
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? Content { get; set; }
+
+    private string GetRenderedHtml()
+    {
+        if (string.IsNullOrWhiteSpace(Content))
+            return "<p>No content</p>";
+
+        return MarkdownService.ConvertToHtml(Content);
+    }
+}

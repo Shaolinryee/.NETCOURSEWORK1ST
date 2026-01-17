@@ -1,0 +1,226 @@
+.markdown-display {
+    width: 100%;
+}
+
+.markdown-content {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #333;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
+/* Headings */
+.markdown-content h1 {
+    font-size: 28px;
+    font-weight: bold;
+    margin: 24px 0 12px 0;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 8px;
+}
+
+.markdown-content h2 {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 20px 0 10px 0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 6px;
+}
+
+.markdown-content h3 {
+    font-size: 20px;
+    font-weight: bold;
+    margin: 16px 0 8px 0;
+}
+
+.markdown-content h4 {
+    font-size: 16px;
+    font-weight: bold;
+    margin: 12px 0 6px 0;
+}
+
+.markdown-content h5 {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 10px 0 4px 0;
+}
+
+.markdown-content h6 {
+    font-size: 12px;
+    font-weight: bold;
+    margin: 8px 0 4px 0;
+    color: #666;
+}
+
+/* Paragraphs */
+.markdown-content p {
+    margin: 12px 0;
+}
+
+/* Lists */
+.markdown-content ul,
+.markdown-content ol {
+    margin: 12px 0;
+    padding-left: 28px;
+}
+
+.markdown-content li {
+    margin: 6px 0;
+}
+
+.markdown-content ul li::marker {
+    color: #512BD4;
+}
+
+.markdown-content ol li::marker {
+    color: #512BD4;
+    font-weight: bold;
+}
+
+/* Code */
+.markdown-content code {
+    background: #f4f4f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #d63384;
+}
+
+.markdown-content pre {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    margin: 12px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #333;
+}
+
+.markdown-content pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+    border-radius: 0;
+}
+
+/* Blockquotes */
+.markdown-content blockquote {
+    border-left: 4px solid #512BD4;
+    padding-left: 12px;
+    margin: 12px 0;
+    color: #666;
+    font-style: italic;
+    background: #f9f9f9;
+    padding: 12px;
+    padding-left: 12px;
+    border-radius: 4px;
+}
+
+/* Text Formatting */
+.markdown-content strong {
+    font-weight: bold;
+    color: #333;
+}
+
+.markdown-content em {
+    font-style: italic;
+    color: #555;
+}
+
+.markdown-content s {
+    text-decoration: line-through;
+    color: #999;
+}
+
+/* Links */
+.markdown-content a {
+    color: #512BD4;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.markdown-content a:hover {
+    text-decoration: underline;
+    color: #6d4adc;
+}
+
+.markdown-content a:visited {
+    color: #9966cc;
+}
+
+/* Tables */
+.markdown-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+}
+
+.markdown-content th,
+.markdown-content td {
+    border: 1px solid #ddd;
+    padding: 10px 12px;
+    text-align: left;
+}
+
+.markdown-content th {
+    background: #f0f0f0;
+    font-weight: bold;
+    color: #333;
+}
+
+.markdown-content tbody tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+.markdown-content tbody tr:hover {
+    background: #f0f0f0;
+}
+
+/* Horizontal Rules */
+.markdown-content hr {
+    border: none;
+    border-top: 2px solid #ddd;
+    margin: 20px 0;
+}
+
+/* Images */
+.markdown-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 12px 0;
+}
+
+/* Line breaks and whitespace */
+.markdown-content br {
+    display: block;
+    content: "";
+    margin: 6px 0;
+}
+
+/* Utility classes that might be used */
+.markdown-content .text-muted {
+    color: #999;
+}
+
+.markdown-content .text-success {
+    color: #28a745;
+}
+
+.markdown-content .text-danger {
+    color: #dc3545;
+}
+
+.markdown-content .text-warning {
+    color: #ffc107;
+}
+
+.markdown-content .text-info {
+    color: #17a2b8;
+}

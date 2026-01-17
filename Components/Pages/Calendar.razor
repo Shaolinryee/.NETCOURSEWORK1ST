@@ -2,6 +2,8 @@
 @using JournalManagementSystem.Models
 @using JournalManagementSystem.Services
 @inject IJournalService JournalService
+@inject ISecurityService SecurityService
+@inject NavigationManager Navigation
 
 <div class="calendar-container">
     <div class="calendar-header">
@@ -71,11 +73,26 @@
 
     private static readonly string[] DayNames = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 
-    private string currentMonth => new DateOnly(displayYear, displayMonth, 1).ToString("MMMM");
+    private string currentMonth => displayMonth > 0 ? new DateOnly(displayYear, displayMonth, 1).ToString("MMMM") : "";
     private int currentYear => displayYear;
 
     protected override async Task OnInitializedAsync()
     {
+        // Check authentication and setup status
+        var authState = await SecurityService.GetCurrentAuthStateAsync();
+        if (!authState.IsAuthenticated)
+        {
+            var isSetupComplete = await SecurityService.IsSecuritySetupCompleteAsync();
+            if (!isSetupComplete)
+            {
+                Navigation.NavigateTo("/setup");
+                return;
+            }
+
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
         var now = DateOnly.FromDateTime(DateTime.Now);
         displayYear = now.Year;
         displayMonth = now.Month;

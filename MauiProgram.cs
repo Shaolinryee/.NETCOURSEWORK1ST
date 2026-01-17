@@ -23,6 +23,11 @@ public static class MauiProgram
 		builder.Services.AddMauiBlazorWebView();
 		builder.Services.AddBlazoredLocalStorage();
 		builder.Services.AddScoped<IThemeService, ThemeService>();
+		builder.Services.AddScoped<IMarkdownService, MarkdownService>();
+		builder.Services.AddScoped<IStreakService, StreakService>();
+		builder.Services.AddScoped<ISecurityService, SecurityService>();
+		builder.Services.AddScoped<IPdfExportService, PdfExportService>();
+		builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 
 		// Register DbContext
 		var dbPath = Path.Combine(FileSystem.AppDataDirectory, "journal.db");
